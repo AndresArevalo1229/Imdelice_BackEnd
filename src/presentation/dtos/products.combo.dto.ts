@@ -6,7 +6,6 @@ export const CreateComboDto = z.object({
   priceCents: z.number().int().nonnegative(),
   description: z.string().optional(),
   sku: z.string().optional(),
-  imageUrl: z.string().url().optional(),
   items: z.array(z.object({
     componentProductId: z.number().int().positive(),
     quantity: z.number().int().positive().optional(),

@@ -3,7 +3,8 @@ import type { Menu, MenuSection, MenuItem, Product } from '@prisma/client';
 export type MenuPublic = Menu & {
   sections: (MenuSection & {
     items: (MenuItem & {
-      product: Pick<Product,'id'|'name'|'type'|'priceCents'|'imageUrl'|'isActive'>;
+      product: Pick<Product,'id'|'name'|'type'|'priceCents'|'isActive'>;
+
     })[];
   })[];
 };

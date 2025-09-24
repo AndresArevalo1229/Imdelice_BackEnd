@@ -74,7 +74,8 @@ export class PrismaMenuRepository implements IMenuRepository {
             items: {
               orderBy: { position: 'asc' },
               include: {
-                product: { select: { id: true, name: true, type: true, priceCents: true, imageUrl: true, isActive: true } }
+               product: { select: { id: true, name: true, type: true, priceCents: true, isActive: true } }
+
               }
             }
           }

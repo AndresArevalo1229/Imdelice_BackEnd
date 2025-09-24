@@ -195,13 +195,23 @@ private getImagePayload(
   };
 
   //COMBOS 
-  createCombo = async(req: Request, res: Response) => {
+ createCombo = async (req: Request, res: Response) => {
   try {
     const dto = CreateComboDto.parse(req.body);
-    const prod = await this.createComboUC.exec(dto);
+    // Usa tu helper existente:
+    const image = (this as any).getImagePayload
+      ? (this as any).getImagePayload(req as any, false)  // nunca null al crear
+      : (req as any).file?.buffer
+        ? { buffer: (req as any).file.buffer, mimeType: (req as any).file.mimetype, size: (req as any).file.size }
+        : undefined;
+
+    const prod = await this.createComboUC.exec({ ...dto, image });
     return success(res, prod, "Created", 201);
-  } catch (err:any) { return fail(res, err?.message || "Error creating combo", 400, err); }
+  } catch (err:any) {
+    return fail(res, err?.message || "Error creating combo", 400, err);
+  }
 };
+
 
 addComboItems = async (req: Request, res: Response) => {
   try {

@@ -28,7 +28,7 @@ router.post("/:id/convert-to-simple",    asyncHandler(productsController.convert
 
 
 //COMBOSSSSS
-router.post("/combo",           asyncHandler(productsController.createCombo));
+router.post("/combo", uploadImage.single('image'), asyncHandler(productsController.createCombo));
 router.post("/:id/combo-items", asyncHandler(productsController.addComboItems));
 router.patch("/combo-items/:comboItemId", asyncHandler(productsController.updateComboItem));
 router.delete("/combo-items/:comboItemId", asyncHandler(productsController.removeComboItem));
