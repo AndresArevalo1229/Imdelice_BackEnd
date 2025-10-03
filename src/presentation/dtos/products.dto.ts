@@ -58,3 +58,7 @@ export const ListProductsQueryDto = z.object({
   type: z.enum(['SIMPLE','VARIANTED','COMBO']).optional(),
   isActive: z.coerce.boolean().optional(),
 });
+export const UpdateAvailabilityDto = z.object({
+  isAvailable: z.boolean()
+});
+export type UpdateAvailabilityDtoType = z.infer<typeof UpdateAvailabilityDto>;

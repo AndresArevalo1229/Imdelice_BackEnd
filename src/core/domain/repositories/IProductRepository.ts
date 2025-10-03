@@ -72,9 +72,15 @@ export interface IProductRepository {
     image?: { buffer: Buffer; mimeType: string; size: number } | null; // null para eliminar imagen
     items?: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[];
   }): Promise<Product>;
-
-  addComboItems(comboProductId: number, items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]): Promise<void>;
+addComboItems(
+  comboProductId: number,
+  items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]
+): Promise<void>;
   updateComboItem(comboItemId: number, data: Partial<{ quantity: number; isRequired: boolean; notes: string }>): Promise<void>;
   removeComboItem(comboItemId: number): Promise<void>;
+
+  
+ setProductAvailability(productId: number, isAvailable: boolean): Promise<void>;
+  setVariantAvailability(variantId: number, isAvailable: boolean, expectProductId?: number): Promise<void>;
 
 }

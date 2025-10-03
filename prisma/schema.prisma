@@ -50,6 +50,7 @@ model Category {
 
   position  Int        @default(0)
   isActive  Boolean    @default(true)
+isComboOnly Boolean @default(false)
 
   @@index([parentId])
 }

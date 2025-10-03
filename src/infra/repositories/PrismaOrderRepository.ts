@@ -454,4 +454,68 @@ export class PrismaOrderRepository implements IOrderRepository {
       return { newOrderId: newOrder.id, code: newOrder.code };
     });
   }
+
+
+  async updateMeta(orderId: number, data: {
+    tableId?: number | null;
+    note?: string | null;
+    covers?: number | null;
+  }): Promise<void> {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        tableId: data.tableId ?? undefined,
+        note: data.note ?? undefined,
+        covers: data.covers ?? undefined
+      }
+    });
+  }
+
+  async updateStatus(orderId: number, status: "DRAFT"|"OPEN"|"HOLD"|"CLOSED"|"CANCELED"): Promise<void> {
+    const ord = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, totalCents: true }
+    });
+    if (!ord) throw new Error("Pedido no existe");
+
+    // Reglas de transición
+    const from = ord.status;
+    const to = status;
+    if (from === "CLOSED" || from === "CANCELED") {
+      throw new Error(`No se puede cambiar estado desde ${from}`);
+    }
+
+    const allowMap: Record<string, Array<typeof to>> = {
+      DRAFT:    ["OPEN","HOLD","CANCELED"],
+      OPEN:     ["HOLD","CANCELED","CLOSED"],
+      HOLD:     ["OPEN","CANCELED"]
+    };
+    const allowed = allowMap[from] || [];
+    if (!allowed.includes(to)) {
+      throw new Error(`Transición inválida: ${from} → ${to}`);
+    }
+
+    // Cerrar solo si está pagado (o igual a 0)
+    if (to === "CLOSED") {
+      const agg = await prisma.payment.aggregate({
+        where: { orderId },
+        _sum: { amountCents: true, tipCents: true }
+      });
+      const paid = (agg._sum.amountCents || 0) + (agg._sum.tipCents || 0);
+      const total = ord.totalCents || 0;
+      if (paid < total) {
+        throw new Error(`No se puede cerrar: pagado ${paid} < total ${total}`);
+      }
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: "CLOSED", closedAt: new Date() }
+      });
+      return;
+    }
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: to }
+    });
+  }
 }

@@ -47,22 +47,42 @@ export class PrismaProductRepository implements IProductRepository {
       }
     });
   }
-
-   update(id: number, data: Partial<Pick<Product,
-    'name'|'categoryId'|'priceCents'|'description'|'sku'|'isActive'
-  >> & {
+update(
+  id: number,
+  data: Partial<Pick<Product, 'name'|'categoryId'|'priceCents'|'description'|'sku'|'isActive'>> & {
     image?: { buffer: Buffer; mimeType: string; size: number } | null;
-  }): Promise<Product> {
-    return prisma.product.update({
+  }
+): Promise<Product> {
+  return prisma.$transaction(async (tx) => {
+    // 1) Saber qué tipo es el producto actual
+    const current = await tx.product.findUnique({
+      where: { id },
+      select: { type: true }
+    });
+    if (!current) throw new Error('Product not found');
+
+    // 2) Si el producto es COMBO y quieren cambiar la categoría, validar isComboOnly
+    if (current.type === 'COMBO' && data.categoryId !== undefined) {
+      const cat = await tx.category.findUnique({ where: { id: data.categoryId } });
+      if (!cat) throw new Error('Category not found');
+      if (cat.isComboOnly !== true) throw new Error('This category does not accept combos');
+    }
+
+    // 3) Actualización normal + manejo de imagen (undefined = no tocar; null = borrar; objeto = reemplazar)
+    const updated = await tx.product.update({
       where: { id },
       data: {
         ...data,
-        image:      data.image === undefined ? undefined : data.image?.buffer ?? null,
-        imageMimeType: data.image === undefined ? undefined : data.image?.mimeType ?? null,
-        imageSize:  data.image === undefined ? undefined : data.image?.size ?? null,
+        image:         data.image === undefined ? undefined : (data.image ? data.image.buffer : null),
+        imageMimeType: data.image === undefined ? undefined : (data.image ? data.image.mimeType : null),
+        imageSize:     data.image === undefined ? undefined : (data.image ? data.image.size : null),
       }
     });
-  }
+
+    return updated;
+  });
+}
+
 
 
   
@@ -147,6 +167,10 @@ async createCombo(data: {
   image?: { buffer: Buffer; mimeType: string; size: number };
   items?: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[];
 }): Promise<Product> {
+    const cat = await prisma.category.findUnique({ where: { id: data.categoryId } })
+  if (!cat) throw new Error('Category not found')
+  if (cat.isComboOnly !== true) throw new Error('This category does not accept combos')
+
     return prisma.product.create({
       data: {
         name: data.name,
@@ -183,7 +207,10 @@ async createCombo(data: {
     });
   }
 
-  async updateComboItem(comboItemId: number, data: Partial<{ quantity: number; isRequired: boolean; notes: string }>): Promise<void> {
+  async updateComboItem(comboItemId: number, data: Partial<{ quantity: number; isRequired: boolean; notes: string }>): 
+  Promise<void> {
+
+
     await prisma.comboItem.update({
       where: { id: comboItemId },
       data: {

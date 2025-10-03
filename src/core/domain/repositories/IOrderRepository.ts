@@ -60,5 +60,12 @@ export interface IOrderRepository {
     note?: string | null;
     covers?: number | null;
   }): Promise<{ newOrderId: number; code: string }>;
+ updateMeta(orderId: number, data: {
+    tableId?: number | null;
+    note?: string | null;
+    covers?: number | null;
+  }): Promise<void>;
+
+  updateStatus(orderId: number, status: "DRAFT"|"OPEN"|"HOLD"|"CLOSED"|"CANCELED"): Promise<void>;
 
 }

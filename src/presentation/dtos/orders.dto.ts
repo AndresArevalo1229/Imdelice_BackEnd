@@ -50,3 +50,14 @@ export const SplitOrderByItemsDto = z.object({
   covers: z.number().int().positive().optional()
 });
 export type SplitOrderByItemsDtoType = z.infer<typeof SplitOrderByItemsDto>;
+export const UpdateOrderMetaDto = z.object({
+  tableId: z.number().int().positive().nullable().optional(), // null para quitar mesa
+  note: z.string().nullable().optional(),
+  covers: z.number().int().positive().nullable().optional()
+});
+export type UpdateOrderMetaDtoType = z.infer<typeof UpdateOrderMetaDto>;
+
+export const UpdateOrderStatusDto = z.object({
+  status: z.enum(["DRAFT","OPEN","HOLD","CLOSED","CANCELED"])
+});
+export type UpdateOrderStatusDtoType = z.infer<typeof UpdateOrderStatusDto>;

@@ -1,7 +1,11 @@
 import type { IProductRepository } from '../../domain/repositories/IProductRepository';
 export class AddComboItems {
   constructor(private repo: IProductRepository) {}
-  exec(comboProductId: number, items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]) {
-    return this.repo.addComboItems(comboProductId, items);
-  }
+  exec(
+  comboProductId: number,
+  items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]
+) {
+  return this.repo.addComboItems(comboProductId, items);
+}
+
 }
