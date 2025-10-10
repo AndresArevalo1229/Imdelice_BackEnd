@@ -59,6 +59,10 @@ import { GetModifierGroup } from '../core/usecases/modifiers/GetModifierGroup';
 import { ListModifierGroupsByProduct } from '../core/usecases/modifiers/ListModifierGroupsByProduct';
 import { ConvertProductToVarianted } from '../core/usecases/products/ConvertProductToVarianted';
 import { ConvertProductToSimple } from '../core/usecases/products/ConvertProductToSimple';
+import { ListProductsByModifierGroup } from '../core/usecases/modifiers/ListProductsByModifierGroup';
+import { DetachModifierGroupFromProduct } from '../core/usecases/products/DetachModifierGroupFromProduct';
+import { UpdateModifierGroupPosition } from '../core/usecases/products/UpdateModifierGroupPosition';
+import { ReorderModifierGroups } from '../core/usecases/products/ReorderModifierGroups';
 
 
 //IMPORTS COMBOSSSS
@@ -143,6 +147,10 @@ const listCategoriesUC = new ListCategories(categoryRepo);
 const updateCategoryUC = new UpdateCategory(categoryRepo);
 const deleteCategoryUC = new DeleteCategory(categoryRepo);
 
+const detachModGroupUC = new DetachModifierGroupFromProduct(productRepo);
+const updateModGroupPosUC = new UpdateModifierGroupPosition(productRepo);
+const reorderModGroupsUC = new ReorderModifierGroups(productRepo); // opcional
+
 
 const createProductSimpleUC    = new CreateProductSimple(productRepo);
 const createProductVariantedUC = new CreateProductVarianted(productRepo);
@@ -156,6 +164,7 @@ const attachModifierUC         = new AttachModifierGroupToProduct(productRepo);
 // NUEVOS
 const convertToVariantedUC     = new ConvertProductToVarianted(productRepo);
 const convertToSimpleUC        = new ConvertProductToSimple(productRepo);
+const listProductsByGroupUC = new ListProductsByModifierGroup(modifierRepo);
 
 
 // instancias COMBOSSS
@@ -229,11 +238,16 @@ export const productsController = new ProductsController(
   addComboItemsUC,
   updateComboItemUC,
   removeComboItemUC,
+
+  detachModGroupUC,
+  updateModGroupPosUC,
+  reorderModGroupsUC
 );
 
 export const modifiersController = new ModifiersController(
   createModifierGroupUC, updateModGroupUC, replaceModOptionsUC, deleteModGroupUC,
-  listModGroupsUC, getModGroupUC, listByProductUC
+  listModGroupsUC, getModGroupUC, listByProductUC,   listProductsByGroupUC // 👈
+
 );
 
 

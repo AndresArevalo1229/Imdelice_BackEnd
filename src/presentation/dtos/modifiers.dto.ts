@@ -42,3 +42,9 @@ export const AttachModifierToProductDto = z.object({
   groupId: z.number().int().positive(),
   position: z.number().int().nonnegative().optional(),
 });
+export const ListProductsByGroupQueryDto = z.object({
+  isActive: z.coerce.boolean().optional(),
+  search:   z.string().min(1).optional(),
+  limit:    z.coerce.number().int().positive().max(200).optional(),
+  offset:   z.coerce.number().int().nonnegative().optional(),
+});

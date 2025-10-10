@@ -13,6 +13,9 @@ router.post("/varianted", uploadImage.single('image'), asyncHandler(productsCont
 router.get("/",           asyncHandler(productsController.list));
 router.get("/:id",        asyncHandler(productsController.getDetail));
 router.post("/attach-modifier", asyncHandler(productsController.attachModifier));
+router.post('/detach-modifier', asyncHandler(productsController.detachModifierGroup)); // 👈 NUEVA
+router.post('/modifier-position', asyncHandler(productsController.updateModifierGroupPosition)); // 👈 NUEVA
+router.post('/modifier-reorder', asyncHandler(productsController.reorderModifierGroups)); // 👈 OPCIONAL
 
 
 router.patch("/:id",uploadImage.single('image'),      asyncHandler(productsController.update));

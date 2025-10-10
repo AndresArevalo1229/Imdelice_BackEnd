@@ -226,5 +226,67 @@ async createCombo(data: {
   }
 
 
-  
+  // Quitar vínculo por linkId o por (productId, groupId)
+async detachModifierGroup(linkIdOr: { linkId: number } | { productId: number; groupId: number }): Promise<void> {
+  if ('linkId' in linkIdOr) {
+    await prisma.productModifierGroup.delete({ where: { id: linkIdOr.linkId } });
+  } else {
+    await prisma.productModifierGroup.deleteMany({
+      where: { productId: linkIdOr.productId, groupId: linkIdOr.groupId }
+    });
+  }
+}
+
+async updateModifierGroupPosition(linkId: number, position: number): Promise<void> {
+  await prisma.productModifierGroup.update({
+    where: { id: linkId },
+    data: { position }
+  });
+}
+
+async reorderModifierGroups(
+  productId: number,
+  items: Array<{ linkId: number; position: number }>
+): Promise<void> {
+  await prisma.$transaction(
+    items.map(i =>
+      prisma.productModifierGroup.update({
+        where: { id: i.linkId },
+        data: { position: i.position }
+      })
+    )
+  );
+}
+// --- DISPONIBILIDAD (PRODUCTO y VARIANTE) ---
+
+async setProductAvailability(productId: number, isAvailable: boolean): Promise<void> {
+  await prisma.product.update({
+    where: { id: productId },
+    data: { isAvailable }
+  });
+}
+
+async setVariantAvailability(
+  variantId: number,
+  isAvailable: boolean,
+  expectProductId?: number
+): Promise<void> {
+  // Validación opcional para asegurar pertenencia
+  if (expectProductId !== undefined) {
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      select: { id: true, productId: true }
+    });
+    if (!variant) throw new Error('Variant not found');
+    if (variant.productId !== expectProductId) {
+      throw new Error('Variant does not belong to the expected product');
+    }
+  }
+
+  await prisma.productVariant.update({
+    where: { id: variantId },
+    data: { isAvailable }
+  });
+}
+
 }

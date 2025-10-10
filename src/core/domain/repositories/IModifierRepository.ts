@@ -1,4 +1,4 @@
-import type { ModifierGroup, ModifierOption } from '@prisma/client';
+import type { Product, ModifierGroup, ModifierOption } from '@prisma/client';
 
 export interface IModifierRepository {
   createGroupWithOptions(data: {
@@ -26,6 +26,18 @@ listGroups(filter?: {
   listByProduct(productId: number): Promise<
     { id: number; position: number; group: ModifierGroup & { options: ModifierOption[] } }[]
   >;
+// NUEVO: listar productos vinculados a un grupo de modificadores
+listProductsByGroup(
+  groupId: number,
+  filter?: { isActive?: boolean; search?: string; limit?: number; offset?: number }
+): Promise<Array<{
+  linkId: number;               // id de productModifierGroup
+  position: number;
+  product: {
+    id: number; name: string; type: 'SIMPLE'|'VARIANTED'|'COMBO';
+    priceCents: number | null; isActive: boolean; categoryId: number;
+  };
+}>>;
 
 
 }

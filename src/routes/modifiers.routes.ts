@@ -14,5 +14,6 @@ router.delete("/groups/:id", asyncHandler(modifiersController.removeGroup)); // 
 router.get("/groups", asyncHandler(modifiersController.listGroups));
 router.get("/groups/by-product/:productId", asyncHandler(modifiersController.listByProduct)); // poner antes de :id
 router.get("/groups/:id", asyncHandler(modifiersController.getGroup));
+router.get("/groups/:groupId/products", asyncHandler(modifiersController.listProductsByGroup));
 
 export default router;

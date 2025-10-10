@@ -12,6 +12,8 @@ import { ListModifierGroupsQueryDto } from '../dtos/modifiers.dto';
 import { ListModifierGroups } from '../../core/usecases/modifiers/ListModifierGroups';
 import { GetModifierGroup } from '../../core/usecases/modifiers/GetModifierGroup';
 import { ListModifierGroupsByProduct } from '../../core/usecases/modifiers/ListModifierGroupsByProduct';
+import { ListProductsByGroupQueryDto } from '../dtos/modifiers.dto';
+import { ListProductsByModifierGroup } from '../../core/usecases/modifiers/ListProductsByModifierGroup';
 
 export class ModifiersController {
   constructor(
@@ -21,7 +23,9 @@ export class ModifiersController {
     private deleteGroupUC: DeleteModifierGroup,
     private listGroupsUC: ListModifierGroups,                 // <—
   private getGroupUC: GetModifierGroup,                     // <—
-  private listByProductUC: ListModifierGroupsByProduct 
+  private listByProductUC: ListModifierGroupsByProduct ,
+    private listProductsByGroupUC: ListProductsByModifierGroup   // 👈 NUEVO
+
 ) {}
 
   createGroup = async (req: Request, res: Response) => {
@@ -82,4 +86,15 @@ getGroup = async (req: Request, res: Response) => {
       return fail(res, err?.message || "Error listing product modifier groups", 400, err);
     }
   };
+  listProductsByGroup = async (req: Request, res: Response) => {
+  try {
+    const groupId = Number(req.params.groupId);
+    const q = ListProductsByGroupQueryDto.parse(req.query);
+    const data = await this.listProductsByGroupUC.exec(groupId, q);
+    return success(res, data);
+  } catch (err: any) {
+    return fail(res, err?.message || "Error listing products by modifier group", 400, err);
+  }
+};
+
 }

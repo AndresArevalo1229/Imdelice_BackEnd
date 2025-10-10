@@ -24,6 +24,10 @@ import { AddComboItems } from "../../core/usecases/products/AddComboItems";
 import { UpdateComboItem } from "../../core/usecases/products/UpdateComboItem";
 import { RemoveComboItem } from "../../core/usecases/products/RemoveComboItem";
 import { CreateComboDto, AddComboItemsDto, UpdateComboItemDto } from "../dtos/products.combo.dto";
+import { DetachModifierGroupFromProduct } from '../../core/usecases/products/DetachModifierGroupFromProduct';
+import { UpdateModifierGroupPosition } from '../../core/usecases/products/UpdateModifierGroupPosition';
+import { ReorderModifierGroups } from '../../core/usecases/products/ReorderModifierGroups';
+import { DetachModifierGroupDto, UpdateModifierGroupPositionDto, ReorderModifierGroupsDto } from '../dtos/products.dto';
 
 
 export class ProductsController {
@@ -43,8 +47,11 @@ export class ProductsController {
     private createComboUC: CreateProductCombo,
     private addComboItemsUC: AddComboItems,
     private updateComboItemUC: UpdateComboItem,
-    private removeComboItemUC: RemoveComboItem
-    
+    private removeComboItemUC: RemoveComboItem,
+    //cambios de grupo de modificadores 
+    private detachModGroupUC: DetachModifierGroupFromProduct,
+    private updateModGroupPosUC: UpdateModifierGroupPosition,
+    private reorderModGroupsUC: ReorderModifierGroups // opcional
   ) {}
 
 // 👇 SOBRECARGAS
@@ -238,5 +245,38 @@ removeComboItem = async (req: Request, res: Response) => {
     return success(res, null, "Item removed", 204);
   } catch (err:any) { return fail(res, err?.message || "Error removing combo item", 400, err); }
 };
+
+
+
+// NUEVOS MÉTODOS PARA GRUPOS DE MODIFICADORES
+  detachModifierGroup = async (req: Request, res: Response) => {
+    try {
+      const dto = DetachModifierGroupDto.parse(req.body);
+      await this.detachModGroupUC.exec(dto as any);
+      return success(res, null, 'Link removed', 204);
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error detaching modifier group', 400, err);
+    }
+  };
+
+  updateModifierGroupPosition = async (req: Request, res: Response) => {
+    try {
+      const dto = UpdateModifierGroupPositionDto.parse(req.body);
+      await this.updateModGroupPosUC.exec(dto.linkId, dto.position);
+      return success(res, null, 'Position updated');
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error updating position', 400, err);
+    }
+  };
+
+  reorderModifierGroups = async (req: Request, res: Response) => {
+    try {
+      const dto = ReorderModifierGroupsDto.parse(req.body);
+      await this.reorderModGroupsUC.exec(dto.productId, dto.items);
+      return success(res, null, 'Reordered');
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error reordering groups', 400, err);
+    }
+  };
 
 }

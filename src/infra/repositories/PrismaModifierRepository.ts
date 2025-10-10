@@ -1,6 +1,7 @@
 import type { IModifierRepository } from '../../core/domain/repositories/IModifierRepository';
 import type { ModifierGroup, ModifierOption } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import type { Product } from '@prisma/client';
 
 export class PrismaModifierRepository implements IModifierRepository {
   async listGroups(filter?: {
@@ -88,5 +89,31 @@ async deleteGroupHard(id: number): Promise<void> {
   });
 }
 
-  
+async listProductsByGroup(
+  groupId: number,
+  filter?: { isActive?: boolean; search?: string; limit?: number; offset?: number }
+): Promise<Array<{ linkId: number; position: number; product: Pick<Product,'id'|'name'|'type'|'priceCents'|'isActive'|'categoryId'> }>> {
+  const links = await prisma.productModifierGroup.findMany({
+    where: {
+      groupId,
+      product: {
+        isActive: filter?.isActive,
+        name: filter?.search ? { contains: filter.search } : undefined, // MySQL: no uses mode:'insensitive'
+      },
+    },
+    include: {
+      product: { select: { id: true, name: true, type: true, priceCents: true, isActive: true, categoryId: true } },
+    },
+    orderBy: [{ position: 'asc' }, { id: 'asc' }],
+    take: filter?.limit ?? 50,
+    skip: filter?.offset ?? 0,
+  });
+
+  return links.map(l => ({
+    linkId: l.id,
+    position: l.position,
+    product: l.product,
+  }));
+}
+
 }

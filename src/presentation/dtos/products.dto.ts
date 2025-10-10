@@ -62,3 +62,22 @@ export const UpdateAvailabilityDto = z.object({
   isAvailable: z.boolean()
 });
 export type UpdateAvailabilityDtoType = z.infer<typeof UpdateAvailabilityDto>;
+
+
+export const DetachModifierGroupDto = z.union([
+  z.object({ linkId: z.number().int().positive() }),
+  z.object({ productId: z.number().int().positive(), groupId: z.number().int().positive() })
+]);
+
+export const UpdateModifierGroupPositionDto = z.object({
+  linkId: z.number().int().positive(),
+  position: z.number().int().nonnegative()
+});
+
+export const ReorderModifierGroupsDto = z.object({
+  productId: z.number().int().positive(),
+  items: z.array(z.object({
+    linkId: z.number().int().positive(),
+    position: z.number().int().nonnegative()
+  })).min(1)
+});

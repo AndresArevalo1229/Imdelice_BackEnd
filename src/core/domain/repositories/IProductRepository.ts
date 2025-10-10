@@ -83,4 +83,18 @@ addComboItems(
  setProductAvailability(productId: number, isAvailable: boolean): Promise<void>;
   setVariantAvailability(variantId: number, isAvailable: boolean, expectProductId?: number): Promise<void>;
 
+
+
+  // Quitar el vínculo producto <-> grupo
+detachModifierGroup(linkIdOr: { linkId: number } | { productId: number; groupId: number }): Promise<void>;
+
+// Cambiar la posición (orden) del vínculo
+updateModifierGroupPosition(linkId: number, position: number): Promise<void>;
+
+// (Opcional) Reordenar en bloque
+reorderModifierGroups(
+  productId: number,
+  items: Array<{ linkId: number; position: number }>
+): Promise<void>;
+
 }
