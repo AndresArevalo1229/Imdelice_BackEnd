@@ -9,6 +9,7 @@ router.use(authenticate);
 router.post("/groups", asyncHandler(modifiersController.createGroup));
 router.patch("/groups/:id", asyncHandler(modifiersController.updateGroup));
 router.delete("/groups/:id", asyncHandler(modifiersController.removeGroup)); // ?hard=true
+router.patch('/modifier-options/:optionId', modifiersController.updateOption);
 
 // LISTADOS
 router.get("/groups", asyncHandler(modifiersController.listGroups));

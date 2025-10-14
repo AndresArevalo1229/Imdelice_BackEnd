@@ -12,7 +12,10 @@ export interface IModifierRepository {
 
   deactivateGroup(id: number): Promise<void>;
   deleteGroupHard(id: number): Promise<void>;
-  
+    updateOption(
+    id: number,
+    data: Partial<Pick<ModifierOption, 'name'|'priceExtraCents'|'isDefault'|'position'|'isActive'>>
+  ): Promise<ModifierOption>;
 
 listGroups(filter?: {
     isActive?: boolean;

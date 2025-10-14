@@ -56,20 +56,87 @@ export class PrismaModifierRepository implements IModifierRepository {
     return prisma.modifierGroup.update({ where: { id }, data });
   }
 
-  async replaceOptions(groupId: number, options: { name: string; priceExtraCents?: number; isDefault?: boolean; position?: number }[]): Promise<void> {
-    await prisma.$transaction([
-      prisma.modifierOption.deleteMany({ where: { groupId } }),
-      prisma.modifierOption.createMany({
-        data: options.map(o => ({
-          groupId,
-          name: o.name,
-          priceExtraCents: o.priceExtraCents ?? 0,
-          isDefault: o.isDefault ?? false,
-          position: o.position ?? 0
-        }))
-      })
-    ]);
+async replaceOptions(
+  groupId: number,
+  options: { id?: number; name: string; priceExtraCents?: number; isDefault?: boolean; position?: number }[]
+): Promise<void> {
+  // 1) Traer las actuales
+  const current = await prisma.modifierOption.findMany({ where: { groupId } });
+  const currentByName = new Map(current.map(o => [o.name, o]));
+  const payloadByName = new Map(options.map(o => [o.name, o]));
+
+  // 2) Preparar operaciones
+  const toUpdate = [];
+  const toCreate = [];
+  const candidatesToDelete: number[] = [];
+
+  // a) Actualizar las que coinciden por nombre
+  for (const o of options) {
+    const existing = currentByName.get(o.name);
+    if (existing) {
+      toUpdate.push(
+        prisma.modifierOption.update({
+          where: { id: existing.id },
+          data: {
+            priceExtraCents: o.priceExtraCents ?? 0,
+            isDefault: !!o.isDefault,
+            position: o.position ?? 0,
+            isActive: true,
+          },
+        })
+      );
+    } else {
+      toCreate.push({
+        groupId,
+        name: o.name,
+        priceExtraCents: o.priceExtraCents ?? 0,
+        isDefault: !!o.isDefault,
+        position: o.position ?? 0,
+        isActive: true,
+      });
+    }
   }
+
+  // b) Las que ya no vienen en el payload
+  for (const existing of current) {
+    if (!payloadByName.has(existing.name)) {
+      candidatesToDelete.push(existing.id);
+    }
+  }
+
+  // 3) Ver cuáles tienen uso histórico en OrderItemModifier
+  const used = await prisma.orderItemModifier.findMany({
+    where: { optionId: { in: candidatesToDelete } },
+    select: { optionId: true },
+  });
+  const usedSet = new Set(used.map(u => u.optionId));
+
+  const toSoftDisable = candidatesToDelete.filter(id => usedSet.has(id));
+  const toHardDelete  = candidatesToDelete.filter(id => !usedSet.has(id));
+
+  // 4) Ejecutar en transacción
+  await prisma.$transaction([
+    // actualizar
+    ...toUpdate,
+    // crear nuevas
+    prisma.modifierOption.createMany({ data: toCreate }),
+    // desactivar las con historial
+    ...(toSoftDisable.length
+      ? [prisma.modifierOption.updateMany({ where: { id: { in: toSoftDisable } }, data: { isActive: false } })]
+      : []),
+    // borrar las sin uso
+    ...(toHardDelete.length
+      ? [prisma.modifierOption.deleteMany({ where: { id: { in: toHardDelete } } })]
+      : []),
+  ]);
+}
+async updateOption(
+  id: number,
+  data: Partial<Pick<ModifierOption,'name'|'priceExtraCents'|'isDefault'|'position'|'isActive'>>
+): Promise<ModifierOption> {
+  return prisma.modifierOption.update({ where: { id }, data });
+}
+
   
 
   async deactivateGroup(id: number): Promise<void> {

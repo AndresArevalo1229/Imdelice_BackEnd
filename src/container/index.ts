@@ -63,6 +63,7 @@ import { ListProductsByModifierGroup } from '../core/usecases/modifiers/ListProd
 import { DetachModifierGroupFromProduct } from '../core/usecases/products/DetachModifierGroupFromProduct';
 import { UpdateModifierGroupPosition } from '../core/usecases/products/UpdateModifierGroupPosition';
 import { ReorderModifierGroups } from '../core/usecases/products/ReorderModifierGroups';
+import { UpdateModifierOption } from '../core/usecases/modifiers/UpdateModifierOption';
 
 
 //IMPORTS COMBOSSSS
@@ -183,6 +184,7 @@ const deleteModGroupUC = new DeleteModifierGroup(modifierRepo);
 const listModGroupsUC = new ListModifierGroups(modifierRepo);
 const getModGroupUC   = new GetModifierGroup(modifierRepo);
 const listByProductUC = new ListModifierGroupsByProduct(modifierRepo);
+const updateModifierOptionUC = new UpdateModifierOption(modifierRepo);
 
 
 
@@ -246,7 +248,9 @@ export const productsController = new ProductsController(
 
 export const modifiersController = new ModifiersController(
   createModifierGroupUC, updateModGroupUC, replaceModOptionsUC, deleteModGroupUC,
-  listModGroupsUC, getModGroupUC, listByProductUC,   listProductsByGroupUC // 👈
+  listModGroupsUC, getModGroupUC, listByProductUC,   listProductsByGroupUC,
+    updateModifierOptionUC,      // 👈 AÑADIR ESTE
+ // 👈
 
 );
 

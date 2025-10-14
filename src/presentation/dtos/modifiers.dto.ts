@@ -48,3 +48,12 @@ export const ListProductsByGroupQueryDto = z.object({
   limit:    z.coerce.number().int().positive().max(200).optional(),
   offset:   z.coerce.number().int().nonnegative().optional(),
 });
+// src/presentation/dtos/modifiers.dto.ts
+
+export const UpdateModifierOptionDto = z.object({
+  name: z.string().min(1).optional(),
+  priceExtraCents: z.coerce.number().int().nonnegative().optional(),
+  isDefault: z.coerce.boolean().optional(),
+  position: z.coerce.number().int().nonnegative().optional(),
+  isActive: z.coerce.boolean().optional(),
+});
