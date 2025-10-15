@@ -4,6 +4,8 @@ export type AppJwtClaims = {
   sub: string | number;     // user id
   email?: string | null;
   roleId?: number;
+    perms?: string[]        // 👈
+
 };
 
 export class JwtService {
