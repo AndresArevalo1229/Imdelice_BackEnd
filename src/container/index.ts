@@ -1,5 +1,8 @@
 import { PrismaUserRepository } from '../infra/repositories/PrismaUserRepository';
 import { PrismaRoleRepository } from '../infra/repositories/PrismaRoleRepository';
+import { PrismaPermissionRepository } from '../infra/repositories/PrismaPermissionRepository'
+import { GetPermissionsByRole } from '../core/usecases/roles/GetPermissionsByRole'
+import { SetRolePermissions } from '../core/usecases/roles/SetRolePermissions'
 
 // Users usecases...
 import { CreateUser } from '../core/usecases/users/CreateUser';
@@ -101,6 +104,9 @@ import { RemoveOrderItem } from "../core/usecases/orders/RemoveOrderItem";
 import { SplitOrderByItems } from "../core/usecases/orders/SplitOrderByItems";
 
 
+const permRepo = new PrismaPermissionRepository()
+const getPermsByRole = new GetPermissionsByRole(permRepo)
+const setRolePerms   = new SetRolePermissions(permRepo)
 
 
 const userRepo = new PrismaUserRepository();
@@ -130,7 +136,8 @@ const rolesController = new RolesController(
   new GetRoleById(roleRepo),
   new CreateRole(roleRepo),
   new UpdateRole(roleRepo),
-  new DeleteRole(roleRepo)
+  new DeleteRole(roleRepo),
+  setRolePerms
 );
 
 // Auth
@@ -138,7 +145,7 @@ const jwtService = new JwtService(); // <-- crea el servicio
 const authController = new AuthController(
   new LoginByEmail(userRepo),
   new LoginByPin(userRepo),
-  jwtService                      // <-- inyéctalo aquí
+  new JwtService(), getPermsByRole                  // <-- inyéctalo aquí
 );
 
 
