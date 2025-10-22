@@ -8,6 +8,7 @@ export const CreateComboDto = z.object({
   sku: z.string().optional(),
   items: z.array(z.object({
     componentProductId: z.number().int().positive(),
+    componentVariantId: z.number().int().positive().optional(),
     quantity: z.number().int().positive().optional(),
     isRequired: z.boolean().optional(),
     notes: z.string().optional()
@@ -18,6 +19,7 @@ export type CreateComboDtoType = z.infer<typeof CreateComboDto>;
 export const AddComboItemsDto = z.object({
   items: z.array(z.object({
     componentProductId: z.number().int().positive(),
+    componentVariantId: z.number().int().positive().optional(),
     quantity: z.number().int().positive().optional(),
     isRequired: z.boolean().optional(),
     notes: z.string().optional()

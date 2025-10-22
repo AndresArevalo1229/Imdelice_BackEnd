@@ -1,2 +1,12 @@
 import type { IMenuRepository } from '../../domain/repositories/IMenuRepository';
-export class UpdateMenu { constructor(private repo: IMenuRepository) {} exec(id:number, data:any){ return this.repo.updateMenu(id,data);} }
+import type { Menu } from '@prisma/client';
+
+type UpdateMenuInput = Partial<Pick<Menu, 'name' | 'isActive' | 'publishedAt' | 'version'>>;
+
+export class UpdateMenu {
+  constructor(private readonly repo: IMenuRepository) {}
+
+  exec(id: number, data: UpdateMenuInput) {
+    return this.repo.updateMenu(id, data);
+  }
+}

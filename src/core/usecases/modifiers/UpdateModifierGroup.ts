@@ -11,6 +11,8 @@ type GroupEditable = {
   maxSelect?: number | null;
   isRequired?: boolean;
   isActive?: boolean;
+    appliesToCategoryId?: number | null;
+
 };
 
 // Payload que puede traer replaceOptions, pero no se pasa al update
@@ -22,6 +24,11 @@ export class UpdateModifierGroup {
   constructor(private repo: IModifierRepository) {}
   exec(id: number, data: UpdatePayload) {
     const { replaceOptions, ...groupData } = data; // ⬅️ filtramos aquí
-    return this.repo.updateGroup(id, groupData);
+       const normalized = {
+      ...groupData,
+      appliesToCategoryId: (data as any).appliesToCategoryId ?? (data as any).categoryId ?? groupData.appliesToCategoryId,
+    };
+        return this.repo.updateGroup(id, normalized);
+
   }
 }

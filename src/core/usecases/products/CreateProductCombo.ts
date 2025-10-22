@@ -4,7 +4,13 @@ export class CreateProductCombo {
   exec(input: {
     name: string; categoryId: number; priceCents: number; description?: string; sku?: string; 
     image?: { buffer: Buffer; mimeType: string; size: number };  // 👈 reemplaza imageUrl?
-    items?: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[];
+    items?: {
+      componentProductId: number;
+      componentVariantId?: number;
+      quantity?: number;
+      isRequired?: boolean;
+      notes?: string;
+    }[];
   }) {
     return this.repo.createCombo(input);
   }

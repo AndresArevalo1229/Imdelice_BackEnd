@@ -113,8 +113,7 @@ model Product {
   modifierGroups  ProductModifierGroup[]
   comboItemsAsCombo     ComboItem[] @relation("ComboItemsAsCombo")
   comboItemsAsComponent ComboItem[] @relation("ComboItemsAsComponent")
-  menuItems             MenuItem[]  @relation("ProductToMenuItems")
-    orderItems            OrderItem[] // ← OrderItem.product
+  orderItems            OrderItem[] // ← OrderItem.product
 
 }
 
@@ -131,6 +130,7 @@ model ProductVariant {
   isAvailable  Boolean   @default(true)  // ← DISPONIBLE HOY (independiente de isActive)
   // 🔁 back-relation
   orderItems  OrderItem[] // ← OrderItem.variant
+  comboItems  ComboItem[] @relation("ComboComponentVariant")
 
   @@index([productId])
   @@unique([productId, name]) // evita duplicados por producto/variante
@@ -196,15 +196,18 @@ model ComboItem {
   id                 Int      @id @default(autoincrement())
   comboProductId     Int
   componentProductId Int
+  componentVariantId Int?
   quantity           Int      @default(1)
   isRequired         Boolean  @default(true)
   notes              String?
 
   comboProduct       Product  @relation("ComboItemsAsCombo", fields: [comboProductId], references: [id])
   componentProduct   Product  @relation("ComboItemsAsComponent", fields: [componentProductId], references: [id])
+  componentVariant   ProductVariant? @relation("ComboComponentVariant", fields: [componentVariantId], references: [id], onDelete: SetNull)
 
   @@index([componentProductId])
-  @@unique([comboProductId, componentProductId])
+  @@index([componentVariantId])
+  @@unique([comboProductId, componentProductId, componentVariantId])
 }
 
 // Menú y secciones: permite armar diferentes cartas (general y mariscos)
@@ -213,38 +216,63 @@ model Menu {
   id        Int          @id @default(autoincrement())
   name      String       @unique
   isActive  Boolean      @default(true)
+  publishedAt DateTime?
+  version   Int          @default(1)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
   sections  MenuSection[]
+
+  @@index([isActive, publishedAt])
 }
 
 model MenuSection {
   id        Int       @id @default(autoincrement())
   menuId    Int
-  menu      Menu      @relation(fields: [menuId], references: [id])
+  menu      Menu      @relation(fields: [menuId], references: [id], onDelete: Restrict)
   name      String    // p. ej. "CREPAS Y WAFFLES", "BEBIDAS", "MARISCOS"
   position  Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   // opcional: enlazar una categoría para autolistar
   categoryId Int?
-  category   Category? @relation("CategoryToMenuSections", fields: [categoryId], references: [id])
+  category   Category? @relation("CategoryToMenuSections", fields: [categoryId], references: [id], onDelete: SetNull)
 
   items     MenuItem[]
+
+  @@index([menuId, isActive, position])
+}
+
+enum MenuItemRefType {
+  PRODUCT
+  VARIANT
+  COMBO
+  OPTION
 }
 
 model MenuItem {
   id          Int         @id @default(autoincrement())
   sectionId   Int
-  section     MenuSection @relation(fields: [sectionId], references: [id])
+  section     MenuSection @relation(fields: [sectionId], references: [id], onDelete: Restrict)
 
-  productId   Int
-  product     Product     @relation("ProductToMenuItems", fields: [productId], references: [id])
+  refType     MenuItemRefType
+  refId       Int
 
   displayName       String?
   displayPriceCents Int?
   position          Int       @default(0)
   isFeatured        Boolean   @default(false)
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
 
-  @@index([sectionId])
-  @@index([productId])
+  @@index([sectionId, isActive, position])
+  @@index([refType, refId])
+  @@unique([sectionId, refType, refId, deletedAt])
 }
 
 

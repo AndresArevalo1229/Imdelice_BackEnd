@@ -13,6 +13,8 @@ export const CreateModifierGroupDto = z.object({
   minSelect: z.number().int().nonnegative().optional(),
   maxSelect: z.number().int().positive().nullable().optional(),
   isRequired: z.boolean().optional(),
+    appliesToCategoryId: z.coerce.number().int().positive().nullable().optional(),
+
   options: z.array(z.object({
     name: z.string().min(1),
     priceExtraCents: z.number().int().nonnegative().optional(),
@@ -28,6 +30,8 @@ export const UpdateModifierGroupDto = z.object({
   maxSelect: z.number().int().positive().nullable().optional(),
   isRequired: z.boolean().optional(),
   isActive: z.boolean().optional(),
+    appliesToCategoryId: z.coerce.number().int().positive().nullable().optional(),
+
   // estrategia simple: reemplazar todas las opciones
   replaceOptions: z.array(z.object({
     name: z.string().min(1),

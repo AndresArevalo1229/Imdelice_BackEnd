@@ -3,7 +3,13 @@ export class AddComboItems {
   constructor(private repo: IProductRepository) {}
   exec(
   comboProductId: number,
-  items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]
+  items: {
+    componentProductId: number;
+    componentVariantId?: number;
+    quantity?: number;
+    isRequired?: boolean;
+    notes?: string;
+  }[]
 ) {
   return this.repo.addComboItems(comboProductId, items);
 }

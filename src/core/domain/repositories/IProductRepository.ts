@@ -22,6 +22,13 @@ export type ProductWithDetails = Product & {
       priceCents: number | null;
       isActive: boolean;
     }
+    componentVariant?: {
+      id: number;
+      name: string;
+      priceCents: number;
+      isActive: boolean;
+      productId: number;
+    } | null;
   }[];
 };
 
@@ -70,11 +77,23 @@ export interface IProductRepository {
     description?: string;
     sku?: string;
     image?: { buffer: Buffer; mimeType: string; size: number } | null; // null para eliminar imagen
-    items?: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[];
+    items?: {
+      componentProductId: number;
+      componentVariantId?: number;
+      quantity?: number;
+      isRequired?: boolean;
+      notes?: string;
+    }[];
   }): Promise<Product>;
 addComboItems(
   comboProductId: number,
-  items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]
+  items: {
+    componentProductId: number;
+    componentVariantId?: number;
+    quantity?: number;
+    isRequired?: boolean;
+    notes?: string;
+  }[]
 ): Promise<void>;
   updateComboItem(comboItemId: number, data: Partial<{ quantity: number; isRequired: boolean; notes: string }>): Promise<void>;
   removeComboItem(comboItemId: number): Promise<void>;

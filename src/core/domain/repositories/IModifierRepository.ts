@@ -3,10 +3,13 @@ import type { Product, ModifierGroup, ModifierOption } from '@prisma/client';
 export interface IModifierRepository {
   createGroupWithOptions(data: {
     name: string; description?: string; minSelect?: number; maxSelect?: number | null; isRequired?: boolean;
+        appliesToCategoryId?: number | null; // 👈 NUEVO
+
     options: { name: string; priceExtraCents?: number; isDefault?: boolean; position?: number }[];
   }): Promise<{ group: ModifierGroup; options: ModifierOption[] }>;
 
-  updateGroup(id: number, data: Partial<Pick<ModifierGroup,'name'|'description'|'minSelect'|'maxSelect'|'isRequired'|'isActive'>>): Promise<ModifierGroup>;
+  updateGroup(id: number, data: Partial<Pick<ModifierGroup,    'name'|'description'|'minSelect'|'maxSelect'|'isRequired'|'isActive'|'appliesToCategoryId' // 👈 NUEVO
+>>): Promise<ModifierGroup>;
 
   replaceOptions(groupId: number, options: { name: string; priceExtraCents?: number; isDefault?: boolean; position?: number }[]): Promise<void>;
 

@@ -6,7 +6,9 @@ const PERMS = [
   'roles.read','roles.create','roles.update','roles.delete',
   'categories.read','categories.create','categories.update','categories.delete',
   'modifiers.read','modifiers.create','modifiers.update','modifiers.delete',
-  'menu.update'
+  'products.read','products.create','products.update','products.delete',
+  'orders.read','orders.create','orders.update','orders.delete',
+  'menu.read','menu.create','menu.update','menu.delete','menu.publish'
 ]
 
 async function main() {
@@ -40,7 +42,7 @@ async function main() {
     create: { name: 'MESERO', description: 'Operación en piso' }
   })
   const meseroPerms = await prisma.permission.findMany({
-    where: { code: { in: ['categories.read', 'modifiers.read'] } }
+    where: { code: { in: ['categories.read', 'modifiers.read', 'menu.read', 'orders.read', 'orders.create', 'orders.update'] } }
   })
   await prisma.rolePermission.deleteMany({ where: { roleId: mesero.id }})
   if (meseroPerms.length) {

@@ -122,7 +122,8 @@ update(
         modifierGroups: { include: { group: { include: { options: true } } }, orderBy: { position: 'asc' } },
         comboItemsAsCombo: {
           include: {
-            componentProduct: { select: { id: true, name: true, type: true, priceCents: true, isActive: true } }
+            componentProduct: { select: { id: true, name: true, type: true, priceCents: true, isActive: true } },
+            componentVariant: { select: { id: true, name: true, priceCents: true, isActive: true, productId: true } }
           },
           orderBy: { id: 'asc' }
         }
@@ -152,9 +153,30 @@ update(
 
   async deleteHard(id: number): Promise<void> {
     await prisma.$transaction(async (tx) => {
+      const variants = await tx.productVariant.findMany({
+        where: { productId: id },
+        select: { id: true }
+      });
+      const variantIds = variants.map(v => v.id);
+
       await tx.productModifierGroup.deleteMany({ where: { productId: id } });
-      await tx.comboItem.deleteMany({ where: { OR: [{ comboProductId: id }, { componentProductId: id }] } });
-      await tx.menuItem.deleteMany({ where: { productId: id } });
+      await tx.comboItem.deleteMany({
+        where: {
+          OR: [
+            { comboProductId: id },
+            { componentProductId: id },
+            { componentVariant: { productId: id } }
+          ]
+        }
+      });
+      const menuItemFilters: any[] = [
+        { refType: 'PRODUCT', refId: id },
+        { refType: 'COMBO', refId: id }
+      ];
+      if (variantIds.length) {
+        menuItemFilters.push({ refType: 'VARIANT', refId: { in: variantIds } });
+      }
+      await tx.menuItem.deleteMany({ where: { OR: menuItemFilters } });
       await tx.productVariant.deleteMany({ where: { productId: id } });
       await tx.product.delete({ where: { id } });
     });
@@ -165,11 +187,40 @@ update(
 async createCombo(data: {
   name: string; categoryId: number; priceCents: number; description?: string; sku?: string;
   image?: { buffer: Buffer; mimeType: string; size: number };
-  items?: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[];
+  items?: {
+    componentProductId: number;
+    componentVariantId?: number;
+    quantity?: number;
+    isRequired?: boolean;
+    notes?: string;
+  }[];
 }): Promise<Product> {
     const cat = await prisma.category.findUnique({ where: { id: data.categoryId } })
   if (!cat) throw new Error('Category not found')
   if (cat.isComboOnly !== true) throw new Error('This category does not accept combos')
+
+    const items = data.items ?? [];
+    if (items.length) {
+      const variantIds = items
+        .map(it => it.componentVariantId)
+        .filter((id): id is number => typeof id === 'number');
+      if (variantIds.length) {
+        const variants = await prisma.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, productId: true }
+        });
+        const variantMap = new Map(variants.map(v => [v.id, v.productId]));
+        for (const item of items) {
+          if (item.componentVariantId !== undefined) {
+            const ownerProductId = variantMap.get(item.componentVariantId);
+            if (!ownerProductId) throw new Error('Component variant not found');
+            if (ownerProductId !== item.componentProductId) {
+              throw new Error('Component variant does not belong to provided product');
+            }
+          }
+        }
+      }
+    }
 
     return prisma.product.create({
       data: {
@@ -182,9 +233,10 @@ async createCombo(data: {
           image: data.image?.buffer,
       imageMimeType: data.image?.mimeType,
       imageSize: data.image?.size,
-        comboItemsAsCombo: data.items?.length ? {
-          create: data.items.map(it => ({
+        comboItemsAsCombo: items.length ? {
+          create: items.map(it => ({
             componentProductId: it.componentProductId,
+            componentVariantId: it.componentVariantId ?? null,
             quantity: it.quantity ?? 1,
             isRequired: it.isRequired ?? true,
             notes: it.notes ?? null
@@ -194,12 +246,38 @@ async createCombo(data: {
     });
   }
 
-  async addComboItems(comboProductId: number, items: { componentProductId: number; quantity?: number; isRequired?: boolean; notes?: string }[]): Promise<void> {
+  async addComboItems(comboProductId: number, items: {
+    componentProductId: number;
+    componentVariantId?: number;
+    quantity?: number;
+    isRequired?: boolean;
+    notes?: string;
+  }[]): Promise<void> {
     if (!items.length) return;
+    const variantIds = items
+      .map(it => it.componentVariantId)
+      .filter((id): id is number => typeof id === 'number');
+    if (variantIds.length) {
+      const variants = await prisma.productVariant.findMany({
+        where: { id: { in: variantIds } },
+        select: { id: true, productId: true }
+      });
+      const variantMap = new Map(variants.map(v => [v.id, v.productId]));
+      for (const item of items) {
+        if (item.componentVariantId !== undefined) {
+          const ownerProductId = variantMap.get(item.componentVariantId);
+          if (!ownerProductId) throw new Error('Component variant not found');
+          if (ownerProductId !== item.componentProductId) {
+            throw new Error('Component variant does not belong to provided product');
+          }
+        }
+      }
+    }
     await prisma.comboItem.createMany({
       data: items.map(it => ({
         comboProductId,
         componentProductId: it.componentProductId,
+        componentVariantId: it.componentVariantId ?? null,
         quantity: it.quantity ?? 1,
         isRequired: it.isRequired ?? true,
         notes: it.notes ?? null

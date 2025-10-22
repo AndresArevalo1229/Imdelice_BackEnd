@@ -1,9 +1,9 @@
 import type { IMenuRepository } from '../../../domain/repositories/IMenuRepository';
 
-export class DeleteMenuSection {
+export class ListMenuSections {
   constructor(private readonly repo: IMenuRepository) {}
 
-  exec(id: number, hard = false) {
-    return this.repo.deleteSection(id, hard);
+  exec(menuId: number) {
+    return this.repo.listSections(menuId);
   }
 }

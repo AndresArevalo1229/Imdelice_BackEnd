@@ -39,12 +39,14 @@ export class PrismaModifierRepository implements IModifierRepository {
 
 
 
-  async createGroupWithOptions(data: { name: string; description?: string; minSelect?: number; maxSelect?: number | null; isRequired?: boolean;
+  async createGroupWithOptions(data: { name: string; description?: string; minSelect?: number; maxSelect?: number | null; isRequired?: boolean;appliesToCategoryId?: number | null;
     options: { name: string; priceExtraCents?: number; isDefault?: boolean; position?: number }[]; }): Promise<{ group: ModifierGroup; options: ModifierOption[] }> {
     const group = await prisma.modifierGroup.create({
       data: {
         name: data.name, description: data.description,
         minSelect: data.minSelect ?? 0, maxSelect: data.maxSelect ?? null, isRequired: data.isRequired ?? false,
+            appliesToCategoryId: data.appliesToCategoryId ?? null,
+
         options: { create: data.options.map(o => ({ name: o.name, priceExtraCents: o.priceExtraCents ?? 0, isDefault: o.isDefault ?? false, position: o.position ?? 0 })) }
       },
       include: { options: true }
@@ -52,7 +54,7 @@ export class PrismaModifierRepository implements IModifierRepository {
     return { group, options: group.options };
   }
 
-  updateGroup(id: number, data: Partial<Pick<ModifierGroup,'name'|'description'|'minSelect'|'maxSelect'|'isRequired'|'isActive'>>): Promise<ModifierGroup> {
+  updateGroup(id: number, data: Partial<Pick<ModifierGroup,'name'|'description'|'minSelect'|'maxSelect'|'isRequired'|'isActive'|'appliesToCategoryId'>>): Promise<ModifierGroup> {
     return prisma.modifierGroup.update({ where: { id }, data });
   }
 

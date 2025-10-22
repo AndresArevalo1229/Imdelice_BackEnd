@@ -1,0 +1,502 @@
+{
+  "info": {
+    "name": "Menus Module",
+    "_postman_id": "f6e6c7a8-2f0d-4fae-917c-f28f6d0cc001",
+    "description": "Colección mínima para validar el módulo de menús (creación, secciones, items y publicación pública).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Menús",
+      "item": [
+        {
+          "name": "Crear menú",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carta Principal\",\n  \"publishedAt\": \"{{publishDate}}\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar menús",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar menús archivados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/trash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "trash"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar menú",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publishedAt\": \"{{publishDate}}\",\n  \"version\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/{{menuId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "{{menuId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear sección",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"menuId\": {{menuId}},\n  \"name\": \"Especiales\",\n  \"position\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/sections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "sections"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar secciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/{{menuId}}/sections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "{{menuId}}",
+                "sections"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar secciones archivadas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/{{menuId}}/sections/trash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "{{menuId}}",
+                "sections",
+                "trash"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Restaurar sección",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/sections/{{sectionId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "sections",
+                "{{sectionId}}",
+                "restore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar sección (hard)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/sections/{{sectionId}}/hard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "sections",
+                "{{sectionId}}",
+                "hard"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Agregar item a sección",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sectionId\": {{sectionId}},\n  \"refType\": \"PRODUCT\",\n  \"refId\": {{refProductId}},\n  \"displayPriceCents\": 15900,\n  \"position\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "items"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/sections/{{sectionId}}/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "sections",
+                "{{sectionId}}",
+                "items"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar items archivados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/sections/{{sectionId}}/items/trash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "sections",
+                "{{sectionId}}",
+                "items",
+                "trash"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Restaurar item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/items/{{menuItemId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "items",
+                "{{menuItemId}}",
+                "restore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar item (hard)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/items/{{menuItemId}}/hard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "items",
+                "{{menuItemId}}",
+                "hard"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener menú público",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/{{menuId}}/public",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "{{menuId}}",
+                "public"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Restaurar menú",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/{{menuId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "{{menuId}}",
+                "restore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Archivar item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/menus/items/{{menuItemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "menus",
+                "items",
+                "{{menuItemId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "menuId",
+      "value": "1"
+    },
+    {
+      "key": "sectionId",
+      "value": "1"
+    },
+    {
+      "key": "menuItemId",
+      "value": "1"
+    },
+    {
+      "key": "refProductId",
+      "value": "1"
+    },
+    {
+      "key": "publishDate",
+      "value": "2024-05-01T12:00:00.000Z"
+    }
+  ]
+}

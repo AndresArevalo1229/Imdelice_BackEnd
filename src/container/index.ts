@@ -80,14 +80,24 @@ import { PrismaMenuRepository } from '../infra/repositories/PrismaMenuRepository
 import { MenuController } from '../presentation/controllers/MenuController';
 import { CreateMenu } from '../core/usecases/menu/CreateMenu';
 import { ListMenus } from '../core/usecases/menu/ListMenus';
+import { ListArchivedMenus } from '../core/usecases/menu/ListArchivedMenus';
 import { UpdateMenu } from '../core/usecases/menu/UpdateMenu';
 import { DeleteMenu } from '../core/usecases/menu/DeleteMenu';
+import { RestoreMenu } from '../core/usecases/menu/RestoreMenu';
 import { CreateMenuSection } from '../core/usecases/menu/sections/CreateMenuSection';
 import { UpdateMenuSection } from '../core/usecases/menu/sections/UpdateMenuSection';
 import { DeleteMenuSection } from '../core/usecases/menu/sections/DeleteMenuSection';
+import { DeleteMenuSectionHard } from '../core/usecases/menu/sections/DeleteMenuSectionHard';
+import { ListMenuSections } from '../core/usecases/menu/sections/ListMenuSections';
+import { ListArchivedMenuSections } from '../core/usecases/menu/sections/ListArchivedMenuSections';
+import { RestoreMenuSection } from '../core/usecases/menu/sections/RestoreMenuSection';
 import { AddMenuItem } from '../core/usecases/menu/items/AddMenuItem';
 import { UpdateMenuItem } from '../core/usecases/menu/items/UpdateMenuItem';
 import { RemoveMenuItem } from '../core/usecases/menu/items/RemoveMenuItem';
+import { RestoreMenuItem } from '../core/usecases/menu/items/RestoreMenuItem';
+import { DeleteMenuItemHard } from '../core/usecases/menu/items/DeleteMenuItemHard';
+import { ListMenuItems } from '../core/usecases/menu/items/ListMenuItems';
+import { ListArchivedMenuItems } from '../core/usecases/menu/items/ListArchivedMenuItems';
 import { GetMenuPublic } from '../core/usecases/menu/items/GetMenuPublic';
 
 //pedidos
@@ -199,16 +209,26 @@ const updateModifierOptionUC = new UpdateModifierOption(modifierRepo);
 
 const createMenuUC = new CreateMenu(menuRepo);
 const listMenusUC  = new ListMenus(menuRepo);
+const listArchivedMenusUC = new ListArchivedMenus(menuRepo);
 const updateMenuUC = new UpdateMenu(menuRepo);
 const deleteMenuUC = new DeleteMenu(menuRepo);
+const restoreMenuUC = new RestoreMenu(menuRepo);
 
 const createSecUC = new CreateMenuSection(menuRepo);
 const updateSecUC = new UpdateMenuSection(menuRepo);
 const deleteSecUC = new DeleteMenuSection(menuRepo);
+const deleteSecHardUC = new DeleteMenuSectionHard(menuRepo);
+const listSectionsUC = new ListMenuSections(menuRepo);
+const listArchivedSectionsUC = new ListArchivedMenuSections(menuRepo);
+const restoreSectionUC = new RestoreMenuSection(menuRepo);
 
 const addItemUC    = new AddMenuItem(menuRepo);
 const updateItemUC = new UpdateMenuItem(menuRepo);
 const removeItemUC = new RemoveMenuItem(menuRepo);
+const restoreItemUC = new RestoreMenuItem(menuRepo);
+const deleteItemHardUC = new DeleteMenuItemHard(menuRepo);
+const listItemsUC = new ListMenuItems(menuRepo);
+const listArchivedItemsUC = new ListArchivedMenuItems(menuRepo);
 
 const getMenuPublicUC = new GetMenuPublic(menuRepo);
 // usecases de pedidos
@@ -264,9 +284,9 @@ export const modifiersController = new ModifiersController(
 
 //menu
 export const menuController = new MenuController(
-  createMenuUC, listMenusUC, updateMenuUC, deleteMenuUC,
-  createSecUC, updateSecUC, deleteSecUC,
-  addItemUC, updateItemUC, removeItemUC,
+  createMenuUC, listMenusUC, listArchivedMenusUC, updateMenuUC, deleteMenuUC, restoreMenuUC,
+  createSecUC, updateSecUC, deleteSecUC, deleteSecHardUC, restoreSectionUC, listSectionsUC, listArchivedSectionsUC,
+  addItemUC, updateItemUC, removeItemUC, restoreItemUC, deleteItemHardUC, listItemsUC, listArchivedItemsUC,
   getMenuPublicUC
 );
 export const ordersController = new OrdersController(
