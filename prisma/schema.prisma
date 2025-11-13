@@ -130,6 +130,7 @@ model ProductVariant {
   isAvailable  Boolean   @default(true)  // ← DISPONIBLE HOY (independiente de isActive)
   // 🔁 back-relation
   orderItems  OrderItem[] // ← OrderItem.variant
+  modifierGroupLinks ProductVariantModifierGroup[] @relation("VariantModifierGroups")
   comboItems  ComboItem[] @relation("ComboComponentVariant")
 
   @@index([productId])
@@ -151,6 +152,7 @@ model ModifierGroup {
   // back-relations
   options      ModifierOption[]
   productLinks ProductModifierGroup[] @relation("ProductToModifierGroup")
+  variantLinks ProductVariantModifierGroup[] @relation("GroupVariantLinks")
 
   // opcional: limitar por categoría (todos los productos de X cat)
   appliesToCategoryId Int?
@@ -188,6 +190,21 @@ model ProductModifierGroup {
   position   Int            @default(0)
 
   @@unique([productId, groupId])
+  @@index([groupId])
+}
+
+model ProductVariantModifierGroup {
+  id         Int      @id @default(autoincrement())
+  variantId  Int
+  groupId    Int
+  minSelect  Int      @default(0)
+  maxSelect  Int?
+  isRequired Boolean  @default(false)
+
+  variant ProductVariant @relation("VariantModifierGroups", fields: [variantId], references: [id], onDelete: Cascade)
+  group   ModifierGroup  @relation("GroupVariantLinks", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, groupId])
   @@index([groupId])
 }
 
@@ -308,6 +325,21 @@ enum PaymentMethod {
   OTHER
 }
 
+enum OrderSource {
+  POS
+  UBER
+  DIDI
+  RAPPI
+}
+
+model ChannelConfig {
+  id        Int         @id @default(autoincrement())
+  source    OrderSource @unique
+  markupPct Decimal     @db.Decimal(5,2)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
 // ========= MESAS (opcional, si manejas salón) =========
 model Table {
   id        Int     @id @default(autoincrement())
@@ -324,12 +356,21 @@ model Order {
   code           String       @unique // folio/ticket, ej. "A-2025-000123"
   status         OrderStatus  @default(OPEN)
   serviceType    ServiceType
+  source         OrderSource  @default(POS)
+
+  externalRef    String?
+  prepEtaMinutes Int?
+  platformMarkupPct Decimal?  @db.Decimal(5,2)
 
   tableId        Int?
   table          Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
 
   openedAt       DateTime     @default(now())
+  acceptedAt     DateTime?
+  readyAt        DateTime?
+  servedAt       DateTime?
   closedAt       DateTime?
+  canceledAt     DateTime?
   note           String?
   customerName   String?
   customerPhone  String?
@@ -417,6 +458,8 @@ model Payment {
   method           PaymentMethod
   amountCents      Int
   tipCents         Int            @default(0)
+  receivedAmountCents Int?
+  changeCents      Int?
   paidAt           DateTime       @default(now())
 
   receivedByUserId Int?

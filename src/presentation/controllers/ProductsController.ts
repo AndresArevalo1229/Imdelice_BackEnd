@@ -4,18 +4,29 @@ import { CreateProductVarianted } from "../../core/usecases/products/CreateProdu
 import { GetProductDetail } from "../../core/usecases/products/GetProductDetail";
 import { ListProducts } from "../../core/usecases/products/ListProducts";
 import { AttachModifierGroupToProduct } from "../../core/usecases/products/AttachModifierGroupToProduct";
-import { CreateProductSimpleDto, CreateProductVariantedDto, ListProductsQueryDto } from "../dtos/products.dto";
+import {
+  CreateProductSimpleDto,
+  CreateProductVariantedDto,
+  ListProductsQueryDto,
+  UpdateProductDto,
+  ReplaceVariantsDto,
+  ConvertToVariantedDto,
+  ConvertToSimpleDto,
+  DetachModifierGroupDto,
+  UpdateModifierGroupPositionDto,
+  ReorderModifierGroupsDto,
+  AttachModifierGroupToVariantDto,
+  UpdateVariantModifierGroupDto
+} from "../dtos/products.dto";
 import { AttachModifierToProductDto } from "../dtos/modifiers.dto";
 import { success, fail } from "../utils/apiResponse";
 
 import { UpdateProduct } from "../../core/usecases/products/UpdateProduct";
 import { ReplaceProductVariants } from "../../core/usecases/products/ReplaceProductVariants";
 import { DeleteProduct } from "../../core/usecases/products/DeleteProduct";
-import { UpdateProductDto, ReplaceVariantsDto } from "../dtos/products.dto";
 // NUEVOS
 import { ConvertProductToVarianted } from "../../core/usecases/products/ConvertProductToVarianted";
 import { ConvertProductToSimple } from "../../core/usecases/products/ConvertProductToSimple";
-import { ConvertToVariantedDto, ConvertToSimpleDto } from "../dtos/products.dto";
 
 
 //COMBOS :
@@ -27,7 +38,10 @@ import { CreateComboDto, AddComboItemsDto, UpdateComboItemDto } from "../dtos/pr
 import { DetachModifierGroupFromProduct } from '../../core/usecases/products/DetachModifierGroupFromProduct';
 import { UpdateModifierGroupPosition } from '../../core/usecases/products/UpdateModifierGroupPosition';
 import { ReorderModifierGroups } from '../../core/usecases/products/ReorderModifierGroups';
-import { DetachModifierGroupDto, UpdateModifierGroupPositionDto, ReorderModifierGroupsDto } from '../dtos/products.dto';
+import { AttachModifierGroupToVariant } from "../../core/usecases/products/AttachModifierGroupToVariant";
+import { UpdateVariantModifierGroup } from "../../core/usecases/products/UpdateVariantModifierGroup";
+import { DetachModifierGroupFromVariant } from "../../core/usecases/products/DetachModifierGroupFromVariant";
+import { ListVariantModifierGroups } from "../../core/usecases/products/ListVariantModifierGroups";
 
 
 export class ProductsController {
@@ -41,17 +55,22 @@ export class ProductsController {
     private updateUC: UpdateProduct,
     private replaceVariantsUC: ReplaceProductVariants,
     private deleteUC: DeleteProduct,
-  private convertToVariantedUC: ConvertProductToVarianted,
+    private convertToVariantedUC: ConvertProductToVarianted,
     private convertToSimpleUC: ConvertProductToSimple,
-    //COMBOS
+    // COMBOS
     private createComboUC: CreateProductCombo,
     private addComboItemsUC: AddComboItems,
     private updateComboItemUC: UpdateComboItem,
     private removeComboItemUC: RemoveComboItem,
-    //cambios de grupo de modificadores 
+    // cambios de grupo de modificadores 
     private detachModGroupUC: DetachModifierGroupFromProduct,
     private updateModGroupPosUC: UpdateModifierGroupPosition,
-    private reorderModGroupsUC: ReorderModifierGroups // opcional
+    private reorderModGroupsUC: ReorderModifierGroups,
+    // overrides por variante
+    private attachVariantModUC: AttachModifierGroupToVariant,
+    private updateVariantModUC: UpdateVariantModifierGroup,
+    private detachVariantModUC: DetachModifierGroupFromVariant,
+    private listVariantModUC: ListVariantModifierGroups
   ) {}
 
 // 👇 SOBRECARGAS
@@ -133,6 +152,50 @@ private getImagePayload(
       return success(res, null, "Attached", 204);
     } catch (err: any) {
       return fail(res, err?.message || "Error attaching modifier", 400, err);
+    }
+  };
+
+  listVariantModifierGroups = async (req: Request, res: Response) => {
+    try {
+      const variantId = Number(req.params.variantId);
+      const data = await this.listVariantModUC.exec(variantId);
+      return success(res, data);
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error listing variant modifier groups', 400, err);
+    }
+  };
+
+  attachModifierToVariant = async (req: Request, res: Response) => {
+    try {
+      const variantId = Number(req.params.variantId);
+      const dto = AttachModifierGroupToVariantDto.parse(req.body);
+      await this.attachVariantModUC.exec({ variantId, ...dto });
+      return success(res, null, 'Attached', 204);
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error attaching modifier to variant', 400, err);
+    }
+  };
+
+  updateVariantModifierGroup = async (req: Request, res: Response) => {
+    try {
+      const variantId = Number(req.params.variantId);
+      const groupId = Number(req.params.groupId);
+      const dto = UpdateVariantModifierGroupDto.parse(req.body);
+      await this.updateVariantModUC.exec(variantId, groupId, dto);
+      return success(res, null, 'Updated', 204);
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error updating variant modifier group', 400, err);
+    }
+  };
+
+  detachModifierFromVariant = async (req: Request, res: Response) => {
+    try {
+      const variantId = Number(req.params.variantId);
+      const groupId = Number(req.params.groupId);
+      await this.detachVariantModUC.exec(variantId, groupId);
+      return success(res, null, 'Detached', 204);
+    } catch (err: any) {
+      return fail(res, err?.message || 'Error detaching modifier from variant', 400, err);
     }
   };
    update = async (req: Request, res: Response) => {
@@ -220,7 +283,7 @@ private getImagePayload(
 };
 
 
-addComboItems = async (req: Request, res: Response) => {
+  addComboItems = async (req: Request, res: Response) => {
   try {
     const productId = Number(req.params.id);
     const dto = AddComboItemsDto.parse(req.body);

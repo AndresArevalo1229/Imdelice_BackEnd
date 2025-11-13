@@ -11,11 +11,15 @@ import authRoutes from './routes/auth.routes';
 import categoriesRouter from './routes/categories.routes';
 import productsRouter from './routes/products.routes';
 import modifiersRouter from './routes/modifiers.routes'
+import channelConfigRouter from './routes/channelConfig.routes';
+import reportsRouter from './routes/reports.routes';
 
 //Menu
 import menuRouter from './routes/menu.routes';
 //pedido
 import ordersRouter from "./routes/orders.routes";
+//mesas
+import tablesRouter from './routes/tables.routes';
 
 
 const app = express();
@@ -32,13 +36,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/modifiers', modifiersRouter);
+app.use('/api/tables', tablesRouter);
 //MENU
 app.use('/api/menus', menuRouter);
+//pedido
+app.use("/api/orders", ordersRouter);
+app.use('/api/channel-config', channelConfigRouter);
+app.use('/api/reports', reportsRouter);
 
 // Middleware global de errores al final
 app.use(errorHandler);
-//peedido
-app.use("/api/orders", ordersRouter);
 
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '0.0.0.0';

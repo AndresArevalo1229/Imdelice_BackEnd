@@ -81,3 +81,16 @@ export const ReorderModifierGroupsDto = z.object({
     position: z.number().int().nonnegative()
   })).min(1)
 });
+
+export const AttachModifierGroupToVariantDto = z.object({
+  groupId: z.number().int().positive(),
+  minSelect: z.number().int().nonnegative().optional(),
+  maxSelect: z.number().int().positive().nullable().optional(),
+  isRequired: z.boolean().optional()
+});
+
+export const UpdateVariantModifierGroupDto = z.object({
+  minSelect: z.number().int().nonnegative().optional(),
+  maxSelect: z.number().int().positive().nullable().optional(),
+  isRequired: z.boolean().optional()
+});

@@ -67,6 +67,10 @@ import { DetachModifierGroupFromProduct } from '../core/usecases/products/Detach
 import { UpdateModifierGroupPosition } from '../core/usecases/products/UpdateModifierGroupPosition';
 import { ReorderModifierGroups } from '../core/usecases/products/ReorderModifierGroups';
 import { UpdateModifierOption } from '../core/usecases/modifiers/UpdateModifierOption';
+import { AttachModifierGroupToVariant } from '../core/usecases/products/AttachModifierGroupToVariant';
+import { UpdateVariantModifierGroup } from '../core/usecases/products/UpdateVariantModifierGroup';
+import { DetachModifierGroupFromVariant } from '../core/usecases/products/DetachModifierGroupFromVariant';
+import { ListVariantModifierGroups } from '../core/usecases/products/ListVariantModifierGroups';
 
 
 //IMPORTS COMBOSSSS
@@ -112,6 +116,24 @@ import { ListKDS } from "../core/usecases/orders/ListKDS";
 import { UpdateOrderItem } from "../core/usecases/orders/UpdateOrderItem";
 import { RemoveOrderItem } from "../core/usecases/orders/RemoveOrderItem";
 import { SplitOrderByItems } from "../core/usecases/orders/SplitOrderByItems";
+import { UpdateOrderMeta } from "../core/usecases/orders/UpdateOrderMeta";
+import { UpdateOrderStatus } from "../core/usecases/orders/UpdateOrderStatus";
+import { ListOrders } from "../core/usecases/orders/ListOrders";
+import { GetPaymentsReport } from "../core/usecases/reports/GetPaymentsReport";
+import { ReportsController } from "../presentation/controllers/ReportsController";
+import { PrismaChannelConfigRepository } from "../infra/repositories/PrismaChannelConfigRepository";
+import { ListChannelConfigs } from "../core/usecases/channelConfig/ListChannelConfigs";
+import { SetChannelConfig } from "../core/usecases/channelConfig/SetChannelConfig";
+import { ChannelConfigController } from "../presentation/controllers/ChannelConfigController";
+
+// Mesas
+import { PrismaTableRepository } from '../infra/repositories/PrismaTableRepository';
+import { CreateTable } from '../core/usecases/tables/CreateTable';
+import { ListTables } from '../core/usecases/tables/ListTables';
+import { GetTable } from '../core/usecases/tables/GetTable';
+import { UpdateTable } from '../core/usecases/tables/UpdateTable';
+import { DeleteTable } from '../core/usecases/tables/DeleteTable';
+import { TablesController } from '../presentation/controllers/TablesController';
 
 
 const permRepo = new PrismaPermissionRepository()
@@ -128,8 +150,11 @@ const modifierRepo = new PrismaModifierRepository();
 
 //REPOS DE MENU
 const menuRepo = new PrismaMenuRepository();
+// Mesas
+const tableRepo = new PrismaTableRepository();
 //repos de pedidos
 const orderRepo = new PrismaOrderRepository();
+const channelConfigRepo = new PrismaChannelConfigRepository();
 
 // Users
 const usersController = new UsersController(
@@ -178,6 +203,10 @@ const updateProductUC = new UpdateProduct(productRepo);
 const replaceVariantsUC = new ReplaceProductVariants(productRepo);
 const deleteProductUC = new DeleteProduct(productRepo);
 const attachModifierUC         = new AttachModifierGroupToProduct(productRepo);
+const attachVariantModUC       = new AttachModifierGroupToVariant(productRepo);
+const updateVariantModUC       = new UpdateVariantModifierGroup(productRepo);
+const detachVariantModUC       = new DetachModifierGroupFromVariant(productRepo);
+const listVariantModUC         = new ListVariantModifierGroups(productRepo);
 
 // NUEVOS
 const convertToVariantedUC     = new ConvertProductToVarianted(productRepo);
@@ -231,6 +260,13 @@ const listItemsUC = new ListMenuItems(menuRepo);
 const listArchivedItemsUC = new ListArchivedMenuItems(menuRepo);
 
 const getMenuPublicUC = new GetMenuPublic(menuRepo);
+
+// usecases de mesas
+const createTableUC = new CreateTable(tableRepo);
+const listTablesUC = new ListTables(tableRepo);
+const getTableUC = new GetTable(tableRepo);
+const updateTableUC = new UpdateTable(tableRepo);
+const deleteTableUC = new DeleteTable(tableRepo);
 // usecases de pedidos
 const createOrderUC = new CreateOrder(orderRepo);
 const addOrderItemUC = new AddOrderItem(orderRepo);
@@ -241,6 +277,12 @@ const listKDSUC = new ListKDS(orderRepo);
 const updateOrderItemUC = new UpdateOrderItem(orderRepo);
 const removeOrderItemUC = new RemoveOrderItem(orderRepo);
 const splitOrderByItemsUC = new SplitOrderByItems(orderRepo);
+const updateOrderMetaUC = new UpdateOrderMeta(orderRepo);
+const updateOrderStatusUC = new UpdateOrderStatus(orderRepo);
+const listOrdersUC = new ListOrders(orderRepo);
+const getPaymentsReportUC = new GetPaymentsReport(orderRepo);
+const listChannelConfigsUC = new ListChannelConfigs(channelConfigRepo);
+const setChannelConfigUC = new SetChannelConfig(channelConfigRepo);
 
 // controllers
 // controllers (reconstruye con deps nuevas)
@@ -270,7 +312,11 @@ export const productsController = new ProductsController(
 
   detachModGroupUC,
   updateModGroupPosUC,
-  reorderModGroupsUC
+  reorderModGroupsUC,
+  attachVariantModUC,
+  updateVariantModUC,
+  detachVariantModUC,
+  listVariantModUC
 );
 
 export const modifiersController = new ModifiersController(
@@ -279,6 +325,14 @@ export const modifiersController = new ModifiersController(
     updateModifierOptionUC,      // 👈 AÑADIR ESTE
  // 👈
 
+);
+
+export const tablesController = new TablesController(
+  createTableUC,
+  listTablesUC,
+  getTableUC,
+  updateTableUC,
+  deleteTableUC
 );
 
 
@@ -291,6 +345,11 @@ export const menuController = new MenuController(
 );
 export const ordersController = new OrdersController(
   createOrderUC, addOrderItemUC, updateOrderItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC,
-  updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC
+  updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC
 );
+export const channelConfigController = new ChannelConfigController(
+  listChannelConfigsUC,
+  setChannelConfigUC
+);
+export const reportsController = new ReportsController(getPaymentsReportUC);
 export { usersController, rolesController, authController };

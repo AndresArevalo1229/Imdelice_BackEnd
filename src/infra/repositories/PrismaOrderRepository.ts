@@ -1,20 +1,37 @@
 // src/infra/repositories/PrismaOrderRepository.ts
 import { prisma } from "../../lib/prisma";
-import type { IOrderRepository } from "../../core/domain/repositories/IOrderRepository";
-import type { Prisma, Order, OrderItem, Payment } from "@prisma/client";
-
-// ===== Tipos auxiliares (alineados con tus enums Prisma) =====
-type ServiceType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
-type OrderDraftStatus = "DRAFT" | "OPEN" | "HOLD";
-type OrderItemStatus = "NEW" | "IN_PROGRESS" | "READY" | "SERVED" | "CANCELED";
-type PaymentMethod = "CASH" | "CARD" | "TRANSFER" | "OTHER";
+import type {
+  IOrderRepository,
+  ListOrdersFilters,
+  ListOrdersItem,
+  OrderItemStatus,
+  OrderStatus,
+  PaymentMethod,
+  OrderSource,
+  ServiceType,
+  KDSFilters,
+  KDSOrderTicket,
+  KDSOrderItem,
+  KDSChildItem,
+  KDSModifierSummary,
+  PaymentsReportFilters,
+  PaymentsReportResult,
+  PaymentsReportMethodSummary,
+  PaymentsReportOrderSummary,
+} from "../../core/domain/repositories/IOrderRepository";
+import { Prisma } from "@prisma/client";
+import type { Order, OrderItem, Payment } from "@prisma/client";
 
 interface CreateOrderInput {
   serviceType: ServiceType;
+  source?: OrderSource;
   tableId?: number | null;
   note?: string | null;
   covers?: number | null;
-  status?: OrderDraftStatus;
+  status?: Extract<OrderStatus, "DRAFT" | "OPEN" | "HOLD">;
+  externalRef?: string | null;
+  prepEtaMinutes?: number | null;
+  platformMarkupPct?: number | null;
 }
 
 interface AddItemModifierInput {
@@ -28,6 +45,15 @@ interface AddItemInput {
   quantity: number;
   notes?: string | null;
   modifiers: AddItemModifierInput[];
+  children?: ChildItemInput[];
+}
+
+interface ChildItemInput {
+  productId: number;
+  variantId?: number | null;
+  quantity?: number;
+  notes?: string | null;
+  modifiers?: AddItemModifierInput[];
 }
 
 interface AddPaymentInput {
@@ -35,32 +61,75 @@ interface AddPaymentInput {
   amountCents: number;
   tipCents: number;
   receivedByUserId: number;
+  receivedAmountCents?: number | null;
+  changeCents?: number | null;
   note?: string | null;
 }
 
-function generateOrderCode() {
-  const now = new Date();
-  const y = now.getFullYear().toString().slice(-2);
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const s = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `IM-${y}${m}${d}-${s}`;
+const MONTH_NAMES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+function formatNoteCode(
+  noteNumber: number,
+  when: Date,
+  attendedBy?: { id?: number | null; name?: string | null }
+) {
+  const day = when.getDate();
+  const monthName = MONTH_NAMES[when.getMonth()];
+  const year = when.getFullYear();
+  let suffix = "";
+  if (attendedBy?.id ?? attendedBy?.name) {
+    const namePart = attendedBy?.name?.trim() || null;
+    const idPart = attendedBy?.id != null ? `ID ${attendedBy.id}` : null;
+    const descriptor = [namePart, idPart].filter(Boolean).join(" - ");
+    suffix = descriptor ? ` - Atendido por: ${descriptor}` : "";
+  }
+  return `NOTA ${noteNumber} del ${day} de ${monthName} de ${year}${suffix}`;
 }
 
 export class PrismaOrderRepository implements IOrderRepository {
   async create(input: CreateOrderInput, servedByUserId: number): Promise<Order> {
-    const order = await prisma.order.create({
-      data: {
-        code: generateOrderCode(),
-        status: (input.status ?? "OPEN") as any, // status es enum en DB
-        serviceType: input.serviceType as any,    // serviceType enum en DB
+    return prisma.$transaction(async (tx) => {
+      const status = (input.status ?? "OPEN") as OrderStatus;
+      const now = new Date();
+      const markupPct =
+        input.platformMarkupPct !== undefined
+          ? input.platformMarkupPct
+          : await this.getMarkupForSource(tx, input.source ?? "POS");
+      const code = await this.generateSequentialCode(tx, servedByUserId);
+
+      const data: Prisma.OrderUncheckedCreateInput = {
+        code,
+        status: status as any,
+        serviceType: input.serviceType as any,
+        source: (input.source ?? "POS") as any,
+        externalRef: input.externalRef ?? null,
+        prepEtaMinutes: input.prepEtaMinutes ?? null,
         tableId: input.tableId ?? null,
         note: input.note ?? null,
         covers: input.covers ?? null,
         servedByUserId,
-      },
+        platformMarkupPct: markupPct ?? null,
+      };
+
+      if (status === "OPEN") {
+        (data as any).acceptedAt = now;
+      }
+
+      return tx.order.create({ data });
     });
-    return order;
   }
 
   // El tipo de retorno depende de tu interfaz; si la interfaz espera Order | null, puedes tiparlo así:
@@ -75,19 +144,34 @@ export class PrismaOrderRepository implements IOrderRepository {
             variant: true,
             product: { select: { id: true, name: true, type: true } },
             modifiers: true,
-            childItems: true,
+            childItems: {
+              include: {
+                variant: true,
+                product: { select: { id: true, name: true, type: true } },
+                modifiers: true,
+                parentItem: { select: { id: true } },
+              },
+            },
             parentItem: { select: { id: true } },
           },
           orderBy: { id: "asc" },
         },
         payments: true,
         table: true,
+        servedBy: { select: { id: true, name: true, email: true } },
       },
     });
   }
 
   async addItem(orderId: number, data: AddItemInput): Promise<{ item: OrderItem }> {
     return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { platformMarkupPct: true },
+      });
+      if (!order) throw new Error("Pedido no existe");
+      const markupMultiplier = this.calculateMarkupMultiplier(order.platformMarkupPct);
+
       // 1) Trae producto/variante y valida disponibilidad
       const product = await tx.product.findUnique({
         where: { id: data.productId },
@@ -112,32 +196,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         basePrice = product.priceCents ?? 0;
       }
 
-      // 2) Calcula extras/modifiers
-      let extras = 0;
-      const mods: {
-        optionId: number;
-        quantity: number;
-        priceExtraCents: number;
-        nameSnapshot: string;
-      }[] = [];
+      basePrice = this.applyMarkup(basePrice, markupMultiplier);
 
-      if (data.modifiers?.length) {
-        const ids = data.modifiers.map((mm) => mm.optionId);
-        const options = await tx.modifierOption.findMany({ where: { id: { in: ids } } });
-        for (const m of data.modifiers as AddItemModifierInput[]) {
-          const opt = options.find((o) => o.id === m.optionId);
-          if (!opt) continue;
-          const qty = m.quantity ?? 1;
-          const extra = (opt.priceExtraCents || 0) * qty;
-          extras += extra;
-          mods.push({
-            optionId: opt.id,
-            quantity: qty,
-            priceExtraCents: opt.priceExtraCents || 0,
-            nameSnapshot: opt.name,
-          });
-        }
-      }
+      const { extras, mods } = await this.resolveModifiers(tx, data.modifiers, markupMultiplier);
 
       const totalUnit = basePrice + extras;
       const total = totalUnit * data.quantity;
@@ -161,9 +222,30 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       // 4) Si es combo, crea hijos
-      if (product.type === "COMBO" && product.comboItemsAsCombo.length) {
+      if (data.children?.length) {
+        await this.createCustomChildItems(
+          tx,
+          orderId,
+          item.id,
+          data.quantity,
+          data.children,
+          markupMultiplier
+        );
+      } else if (product.type === "COMBO" && product.comboItemsAsCombo.length) {
         for (const ci of product.comboItemsAsCombo) {
           const comp = await tx.product.findUnique({ where: { id: ci.componentProductId } });
+          if (!comp) continue;
+          let childVariantId: number | null = null;
+          let childVariantName: string | null = null;
+          if (ci.componentVariantId) {
+            const childVariant = await tx.productVariant.findUnique({
+              where: { id: ci.componentVariantId },
+            });
+            if (childVariant && childVariant.isActive && childVariant.isAvailable) {
+              childVariantId = childVariant.id;
+              childVariantName = childVariant.name;
+            }
+          }
           await tx.orderItem.create({
             data: {
               orderId,
@@ -174,8 +256,9 @@ export class PrismaOrderRepository implements IOrderRepository {
               basePriceCents: 0,
               extrasTotalCents: 0,
               totalPriceCents: 0,
-              nameSnapshot: comp ? comp.name : `Producto ${ci.componentProductId}`,
-              variantNameSnapshot: null,
+              nameSnapshot: comp.name,
+              variantId: childVariantId,
+              variantNameSnapshot: childVariantName,
             },
           });
         }
@@ -189,11 +272,120 @@ export class PrismaOrderRepository implements IOrderRepository {
   }
 
   async updateItemStatus(orderItemId: number, status: OrderItemStatus): Promise<void> {
-    await prisma.orderItem.update({ where: { id: orderItemId }, data: { status: status as any } });
+    await prisma.$transaction(async (tx) => {
+      const item = await tx.orderItem.findUnique({
+        where: { id: orderItemId },
+        select: {
+          id: true,
+          status: true,
+          orderId: true,
+          parentItemId: true,
+          order: {
+            select: {
+              id: true,
+              status: true,
+              acceptedAt: true,
+              readyAt: true,
+              servedAt: true,
+            },
+          },
+        },
+      });
+      if (!item) {
+        throw new Error("Order item no encontrado");
+      }
+
+      if (item.status === status) {
+        return;
+      }
+
+      const transitions: Record<OrderItemStatus, OrderItemStatus[]> = {
+        NEW: ["IN_PROGRESS", "CANCELED"],
+        IN_PROGRESS: ["READY", "CANCELED"],
+        READY: ["SERVED", "CANCELED"],
+        SERVED: [],
+        CANCELED: [],
+      };
+
+      const allowed = transitions[item.status as OrderItemStatus] || [];
+      if (!allowed.includes(status)) {
+        throw new Error(`Transición inválida: ${item.status} → ${status}`);
+      }
+
+      await tx.orderItem.update({
+        where: { id: orderItemId },
+        data: { status: status as any },
+      });
+
+      if (status === "CANCELED") {
+        await tx.orderItem.updateMany({
+          where: { parentItemId: orderItemId },
+          data: { status: "CANCELED" as any },
+        });
+      }
+
+      const orderItems = await tx.orderItem.findMany({
+        where: { orderId: item.orderId },
+        select: { status: true },
+      });
+
+      const allReadyOrServed = orderItems.every((it) =>
+        ["READY", "SERVED", "CANCELED"].includes(it.status)
+      );
+      const allServed = orderItems.every((it) => ["SERVED", "CANCELED"].includes(it.status));
+      const progressedStatuses = new Set<OrderItemStatus>(["IN_PROGRESS", "READY", "SERVED"]);
+      const hasProgress = orderItems.some((it) => progressedStatuses.has(it.status as OrderItemStatus));
+
+      const orderUpdate: Prisma.OrderUpdateInput = {};
+      const now = new Date();
+
+      if (!item.order?.acceptedAt && hasProgress) {
+        (orderUpdate as any).acceptedAt = now;
+      }
+
+      if (allReadyOrServed) {
+        if (!item.order?.readyAt) {
+          (orderUpdate as any).readyAt = now;
+        }
+      } else if (item.order?.readyAt) {
+        (orderUpdate as any).readyAt = null;
+      }
+
+      if (allServed) {
+        if (!item.order?.servedAt) {
+          (orderUpdate as any).servedAt = now;
+        }
+      } else if (item.order?.servedAt) {
+        (orderUpdate as any).servedAt = null;
+      }
+
+      if (Object.keys(orderUpdate).length) {
+        await tx.order.update({
+          where: { id: item.orderId },
+          data: orderUpdate,
+        });
+      }
+
+      if (status === "CANCELED") {
+        await this.recalcTotalsTx(tx, item.orderId);
+      }
+    });
   }
 
   async addPayment(orderId: number, data: AddPaymentInput): Promise<Payment> {
     const payment = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, select: { totalCents: true } });
+      if (!order) throw new Error("Pedido no existe");
+
+      const prevAgg = await tx.payment.aggregate({
+        where: { orderId },
+        _sum: { amountCents: true, tipCents: true },
+      });
+      const alreadyPaid = (prevAgg._sum.amountCents || 0) + (prevAgg._sum.tipCents || 0);
+      if (alreadyPaid >= (order.totalCents || 0)) {
+        throw new Error("Pedido ya pagado");
+      }
+
       const pay = await tx.payment.create({
         data: {
           orderId,
@@ -201,6 +393,8 @@ export class PrismaOrderRepository implements IOrderRepository {
           amountCents: data.amountCents,
           tipCents: data.tipCents || 0,
           receivedByUserId: data.receivedByUserId,
+          receivedAmountCents: data.receivedAmountCents ?? null,
+          changeCents: data.changeCents ?? null,
           note: data.note ?? null,
         },
       });
@@ -229,40 +423,270 @@ export class PrismaOrderRepository implements IOrderRepository {
 
   // 🔧 IMPORTANTE: usar Prisma.TransactionClient aquí
   private async recalcTotalsTx(tx: Prisma.TransactionClient, orderId: number): Promise<void> {
-    const items = await tx.orderItem.findMany({ where: { orderId } });
+    const [items, orderSnapshot] = await Promise.all([
+      tx.orderItem.findMany({
+        where: {
+          orderId,
+          status: { not: "CANCELED" },
+        },
+        select: { totalPriceCents: true },
+      }),
+      tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          discountCents: true,
+          serviceFeeCents: true,
+          taxCents: true,
+        },
+      }),
+    ]);
+
     const subtotal = items.reduce((acc, it) => acc + (it.totalPriceCents || 0), 0);
-    // aquí podrías calcular impuestos/servicio/descuentos si aplica
+    const discount = orderSnapshot?.discountCents ?? 0;
+    const serviceFee = orderSnapshot?.serviceFeeCents ?? 0;
+    const tax = orderSnapshot?.taxCents ?? 0;
+    const total = Math.max(0, subtotal - discount + serviceFee + tax);
+
     await tx.order.update({
       where: { id: orderId },
       data: {
         subtotalCents: subtotal,
-        discountCents: 0,
-        serviceFeeCents: 0,
-        taxCents: 0,
-        totalCents: subtotal,
+        discountCents: discount,
+        serviceFeeCents: serviceFee,
+        taxCents: tax,
+        totalCents: total,
       },
     });
   }
 
-  async listKDS(statuses: ("NEW" | "IN_PROGRESS" | "READY")[]) {
-    const rows = await prisma.orderItem.findMany({
-      where: { status: { in: statuses as any } },
-      include: {
-        order: { select: { id: true, code: true, table: { select: { name: true } } } },
+  async listKDS(filters: KDSFilters): Promise<KDSOrderTicket[]> {
+    const validStatusSet = new Set<OrderItemStatus>(["NEW", "IN_PROGRESS", "READY"]);
+    const statusesInput = filters.statuses?.filter((s) => validStatusSet.has(s)) ?? [];
+    const statusesToQuery = statusesInput.length ? statusesInput : ["NEW", "IN_PROGRESS"];
+
+    const where: Prisma.OrderWhereInput = {
+      items: {
+        some: {
+          parentItemId: null,
+          status: { in: statusesToQuery as any },
+        },
       },
-      orderBy: [{ id: "asc" }],
+    };
+
+    if (filters.serviceType) {
+      where.serviceType = filters.serviceType as any;
+    }
+    if (filters.source) {
+      where.source = filters.source as any;
+    }
+    if (filters.tableId !== undefined) {
+      where.tableId = filters.tableId;
+    }
+    if (filters.from || filters.to) {
+      where.openedAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        table: { select: { id: true, name: true } },
+        items: {
+          where: {
+            parentItemId: null,
+            status: { in: statusesToQuery as any },
+          },
+          include: {
+            product: { select: { id: true, name: true, type: true } },
+            variant: { select: { id: true, name: true } },
+            modifiers: true,
+            childItems: {
+              include: {
+                product: { select: { id: true, name: true, type: true } },
+                variant: { select: { id: true, name: true } },
+                modifiers: true,
+              },
+              orderBy: { id: "asc" },
+            },
+          },
+          orderBy: { id: "asc" },
+        },
+      },
+      orderBy: [{ openedAt: "asc" }, { id: "asc" }],
     });
-    return rows.map((r) => ({
-      itemId: r.id,
-      orderId: r.orderId,
-      status: r.status,
-      quantity: r.quantity,
-      name: r.nameSnapshot,
-      variant: r.variantNameSnapshot,
-      tableName: r.order.table?.name ?? null,
-      code: r.order.code,
-      parentItemId: r.parentItemId ?? null,
-    }));
+
+    const mapModifiers = (mods: { nameSnapshot: string; quantity: number }[]): KDSModifierSummary[] =>
+      mods.map((m) => ({
+        name: m.nameSnapshot,
+        quantity: m.quantity,
+      }));
+
+    const tickets: KDSOrderTicket[] = orders
+      .map((order) => {
+        const items: KDSOrderItem[] = order.items.map((item) => {
+          const children: KDSChildItem[] = item.childItems.map((child) => ({
+            id: child.id,
+            productId: child.productId,
+            name: child.nameSnapshot,
+            variantName: child.variantNameSnapshot,
+            quantity: child.quantity,
+            status: child.status as OrderItemStatus,
+            notes: child.notes ?? null,
+            modifiers: mapModifiers(child.modifiers),
+          }));
+
+          return {
+            id: item.id,
+            productId: item.productId,
+            name: item.nameSnapshot,
+            variantName: item.variantNameSnapshot,
+            quantity: item.quantity,
+            status: item.status as OrderItemStatus,
+            notes: item.notes ?? null,
+            modifiers: mapModifiers(item.modifiers),
+            isComboParent: item.product?.type === "COMBO",
+            children,
+          };
+        });
+
+        return {
+          orderId: order.id,
+          code: order.code,
+          status: order.status as OrderStatus,
+          serviceType: order.serviceType as ServiceType,
+          source: order.source as OrderSource,
+          openedAt: order.openedAt,
+          note: order.note ?? null,
+          prepEtaMinutes: order.prepEtaMinutes ?? null,
+          customerName: order.customerName ?? null,
+          customerPhone: order.customerPhone ?? null,
+          table: order.table ? { id: order.table.id, name: order.table.name } : null,
+          items,
+        } as KDSOrderTicket;
+      })
+      .filter((ticket) => ticket.items.length > 0);
+
+    return tickets;
+  }
+
+  async getPaymentsReport(filters: PaymentsReportFilters): Promise<PaymentsReportResult> {
+    const paymentWhere: Prisma.PaymentWhereInput = {};
+    if (filters.from || filters.to) {
+      paymentWhere.paidAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+
+    const payments = await prisma.payment.findMany({ where: paymentWhere, select: {
+      method: true,
+      amountCents: true,
+      tipCents: true,
+      changeCents: true,
+      receivedAmountCents: true,
+    } });
+
+    const totalsMap = new Map<PaymentMethod, PaymentsReportMethodSummary>();
+
+    for (const pay of payments) {
+      const method = pay.method as PaymentMethod;
+      if (!totalsMap.has(method)) {
+        totalsMap.set(method, {
+          method,
+          paymentsCount: 0,
+          amountCents: 0,
+          tipCents: 0,
+          changeCents: 0,
+          receivedAmountCents: 0,
+        });
+      }
+      const bucket = totalsMap.get(method)!;
+      bucket.paymentsCount += 1;
+      bucket.amountCents += pay.amountCents || 0;
+      bucket.tipCents += pay.tipCents || 0;
+      bucket.changeCents += pay.changeCents || 0;
+      bucket.receivedAmountCents += pay.receivedAmountCents || 0;
+    }
+
+    const totalsByMethod = Array.from(totalsMap.values()).sort((a, b) => a.method.localeCompare(b.method));
+
+    const ordersClosedWhere: Prisma.OrderWhereInput = { status: "CLOSED" };
+    if (filters.from || filters.to) {
+      ordersClosedWhere.closedAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+    const ordersClosed = await prisma.order.count({ where: ordersClosedWhere });
+
+    const grandTotals = totalsByMethod.reduce(
+      (acc, curr) => {
+        acc.paymentsCount += curr.paymentsCount;
+        acc.amountCents += curr.amountCents;
+        acc.tipCents += curr.tipCents;
+        acc.changeCents += curr.changeCents;
+        acc.receivedAmountCents += curr.receivedAmountCents;
+        return acc;
+      },
+      { paymentsCount: 0, amountCents: 0, tipCents: 0, changeCents: 0, receivedAmountCents: 0, ordersClosed }
+    );
+
+    let ordersDetails: PaymentsReportOrderSummary[] | undefined;
+
+    if (filters.includeOrders) {
+      const orders = await prisma.order.findMany({
+        where: ordersClosedWhere,
+        include: {
+          table: { select: { id: true, name: true } },
+          payments: {
+            select: {
+              id: true,
+              method: true,
+              amountCents: true,
+              tipCents: true,
+              changeCents: true,
+              paidAt: true,
+            },
+            orderBy: { paidAt: "asc" },
+          },
+        },
+        orderBy: [{ closedAt: "asc" }, { id: "asc" }],
+      });
+
+      ordersDetails = orders.map((order) => ({
+        orderId: order.id,
+        code: order.code,
+        status: order.status as OrderStatus,
+        serviceType: order.serviceType as ServiceType,
+        source: order.source as OrderSource,
+        openedAt: order.openedAt,
+        closedAt: order.closedAt,
+        subtotalCents: order.subtotalCents,
+        totalCents: order.totalCents,
+        note: order.note ?? null,
+        table: order.table ? { id: order.table.id, name: order.table.name } : null,
+        payments: order.payments.map((p) => ({
+          id: p.id,
+          method: p.method as PaymentMethod,
+          amountCents: p.amountCents,
+          tipCents: p.tipCents,
+          changeCents: p.changeCents ?? null,
+          paidAt: p.paidAt,
+        })),
+      }));
+    }
+
+    return {
+      range: {
+        from: filters.from,
+        to: filters.to,
+      },
+      totalsByMethod,
+      grandTotals,
+      orders: ordersDetails,
+    };
   }
     async updateItem(orderItemId: number, data: {
     quantity?: number;
@@ -275,10 +699,12 @@ export class PrismaOrderRepository implements IOrderRepository {
         include: {
           product: { include: { comboItemsAsCombo: true } },
           modifiers: true,
-          childItems: true
+          childItems: true,
+          order: { select: { platformMarkupPct: true } },
         }
       });
       if (!current) throw new Error("Order item no encontrado");
+      const markupMultiplier = this.calculateMarkupMultiplier(current.order?.platformMarkupPct ?? null);
 
       // 1) Reemplazo de modificadores (opcional)
       let extras = current.extrasTotalCents || 0;
@@ -295,11 +721,12 @@ export class PrismaOrderRepository implements IOrderRepository {
           const opt = options.find(o => o.id === m.optionId);
           if (!opt) throw new Error(`Modifier option ${m.optionId} inválido`);
           const qty = m.quantity ?? 1;
+          const priceExtraCents = this.applyMarkup(opt.priceExtraCents || 0, markupMultiplier);
           return {
             orderItemId,
             optionId: opt.id,
             quantity: qty,
-            priceExtraCents: opt.priceExtraCents || 0,
+            priceExtraCents,
             nameSnapshot: opt.name
           };
         });
@@ -431,13 +858,18 @@ export class PrismaOrderRepository implements IOrderRepository {
 
       const newOrder = await tx.order.create({
         data: {
-          code: generateOrderCode(),
+          code: await this.generateSequentialCode(tx, input.servedByUserId),
           status: "OPEN",
           serviceType: (input.serviceType ?? src.serviceType) as any,
+          source: (src as any).source ?? "POS",
+          externalRef: null,
+          prepEtaMinutes: (src as any).prepEtaMinutes ?? null,
           tableId: input.tableId ?? src.tableId ?? null,
           note: input.note ?? null,
           covers: input.covers ?? src.covers ?? null,
-          servedByUserId: input.servedByUserId
+          servedByUserId: input.servedByUserId,
+          platformMarkupPct: (src as any).platformMarkupPct ?? null,
+          acceptedAt: new Date(),
         }
       });
 
@@ -460,62 +892,371 @@ export class PrismaOrderRepository implements IOrderRepository {
     tableId?: number | null;
     note?: string | null;
     covers?: number | null;
+    prepEtaMinutes?: number | null;
   }): Promise<void> {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        tableId: data.tableId ?? undefined,
-        note: data.note ?? undefined,
-        covers: data.covers ?? undefined
-      }
-    });
-  }
-
-  async updateStatus(orderId: number, status: "DRAFT"|"OPEN"|"HOLD"|"CLOSED"|"CANCELED"): Promise<void> {
-    const ord = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { status: true, totalCents: true }
-    });
-    if (!ord) throw new Error("Pedido no existe");
-
-    // Reglas de transición
-    const from = ord.status;
-    const to = status;
-    if (from === "CLOSED" || from === "CANCELED") {
-      throw new Error(`No se puede cambiar estado desde ${from}`);
+    const updateData: Prisma.OrderUncheckedUpdateInput = {};
+    if (data.tableId !== undefined) {
+      updateData.tableId = data.tableId ?? null;
+    }
+    if (data.note !== undefined) {
+      updateData.note = data.note ?? null;
+    }
+    if (data.covers !== undefined) {
+      updateData.covers = data.covers ?? null;
+    }
+    if (data.prepEtaMinutes !== undefined) {
+      updateData.prepEtaMinutes = data.prepEtaMinutes ?? null;
     }
 
-    const allowMap: Record<string, Array<typeof to>> = {
-      DRAFT:    ["OPEN","HOLD","CANCELED"],
-      OPEN:     ["HOLD","CANCELED","CLOSED"],
-      HOLD:     ["OPEN","CANCELED"]
-    };
-    const allowed = allowMap[from] || [];
-    if (!allowed.includes(to)) {
-      throw new Error(`Transición inválida: ${from} → ${to}`);
-    }
-
-    // Cerrar solo si está pagado (o igual a 0)
-    if (to === "CLOSED") {
-      const agg = await prisma.payment.aggregate({
-        where: { orderId },
-        _sum: { amountCents: true, tipCents: true }
-      });
-      const paid = (agg._sum.amountCents || 0) + (agg._sum.tipCents || 0);
-      const total = ord.totalCents || 0;
-      if (paid < total) {
-        throw new Error(`No se puede cerrar: pagado ${paid} < total ${total}`);
-      }
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: "CLOSED", closedAt: new Date() }
-      });
+    if (!Object.keys(updateData).length) {
       return;
     }
 
     await prisma.order.update({
       where: { id: orderId },
-      data: { status: to }
+      data: updateData,
     });
+  }
+
+  async updateStatus(orderId: number, status: OrderStatus): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      const ord = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          status: true,
+          totalCents: true,
+          acceptedAt: true,
+          closedAt: true,
+          canceledAt: true,
+        },
+      });
+      if (!ord) throw new Error("Pedido no existe");
+
+      const from = ord.status as OrderStatus;
+      const to = status;
+
+      if (from === "CLOSED" || from === "CANCELED") {
+        throw new Error(`No se puede cambiar estado desde ${from}`);
+      }
+
+      const allowMap: Record<OrderStatus, OrderStatus[]> = {
+        DRAFT: ["OPEN", "HOLD", "CANCELED"],
+        OPEN: ["HOLD", "CANCELED", "CLOSED"],
+        HOLD: ["OPEN", "CANCELED"],
+        CLOSED: [],
+        CANCELED: [],
+      };
+
+      const allowed = allowMap[from] || [];
+      if (!allowed.includes(to)) {
+        throw new Error(`Transición inválida: ${from} → ${to}`);
+      }
+
+      const now = new Date();
+      const updateData: Prisma.OrderUpdateInput = { status: to };
+
+      if (to === "OPEN" && !ord.acceptedAt) {
+        (updateData as any).acceptedAt = now;
+      }
+
+      if (to === "CLOSED") {
+        await this.recalcTotalsTx(tx, orderId);
+        const agg = await tx.payment.aggregate({
+          where: { orderId },
+          _sum: { amountCents: true, tipCents: true },
+        });
+        const paid = (agg._sum.amountCents || 0) + (agg._sum.tipCents || 0);
+        const total = (await tx.order.findUnique({
+          where: { id: orderId },
+          select: { totalCents: true },
+        }))?.totalCents ?? 0;
+        if (paid < total) {
+          throw new Error(`No se puede cerrar: pagado ${paid} < total ${total}`);
+        }
+        (updateData as any).closedAt = now;
+      } else {
+        (updateData as any).closedAt = null;
+      }
+
+      if ((status as OrderStatus) === "CANCELED") {
+        (updateData as any).canceledAt = now;
+      } else if (ord.canceledAt && (status as OrderStatus) !== "CANCELED") {
+        (updateData as any).canceledAt = null;
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+      });
+    });
+  }
+
+  async list(filters: ListOrdersFilters): Promise<ListOrdersItem[]> {
+    const where: Prisma.OrderWhereInput = {};
+
+    if (filters.statuses && filters.statuses.length) {
+      where.status = { in: filters.statuses as any };
+    }
+
+    if (filters.serviceType) {
+      where.serviceType = filters.serviceType as any;
+    }
+
+    if (filters.source) {
+      where.source = { equals: filters.source as any };
+    }
+
+    if (filters.tableId !== undefined) {
+      where.tableId = { equals: filters.tableId };
+    }
+
+    if (filters.from || filters.to) {
+      where.openedAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+
+    if (filters.search?.trim()) {
+      const search = filters.search.trim();
+      where.OR = [
+        { code: { contains: search, mode: "insensitive" as any } } as Prisma.OrderWhereInput,
+        { note: { contains: search, mode: "insensitive" as any } } as Prisma.OrderWhereInput,
+        { customerName: { contains: search, mode: "insensitive" as any } } as Prisma.OrderWhereInput,
+        { customerPhone: { contains: search, mode: "insensitive" as any } } as Prisma.OrderWhereInput,
+      ];
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        table: { select: { id: true, name: true } },
+        servedBy: { select: { id: true, name: true, email: true } },
+        payments: {
+          select: {
+            id: true,
+            method: true,
+            amountCents: true,
+            tipCents: true,
+            paidAt: true,
+            note: true,
+          },
+          orderBy: { paidAt: "asc" },
+        },
+      },
+      orderBy: [{ openedAt: "desc" }],
+    });
+
+    return orders.map<ListOrdersItem>((order) => {
+      const paymentsTotal = order.payments.reduce((acc, p) => acc + p.amountCents, 0);
+      const tipsTotal = order.payments.reduce((acc, p) => acc + p.tipCents, 0);
+
+      return {
+        id: order.id,
+        code: order.code,
+        status: order.status as OrderStatus,
+        serviceType: order.serviceType as ServiceType,
+        source: (order as any).source ?? "POS",
+        servedByUserId: order.servedByUserId ?? null,
+        servedBy: order.servedBy
+          ? {
+              id: order.servedBy.id,
+              name: order.servedBy.name ?? null,
+              email: order.servedBy.email ?? null,
+            }
+          : null,
+        platformMarkupPct:
+          order.platformMarkupPct !== null && order.platformMarkupPct !== undefined
+            ? Number(order.platformMarkupPct)
+            : null,
+        subtotalCents: order.subtotalCents,
+        discountCents: order.discountCents,
+        serviceFeeCents: order.serviceFeeCents,
+        taxCents: order.taxCents,
+        totalCents: order.totalCents,
+        paymentsTotalCents: paymentsTotal,
+        paymentsTipCents: tipsTotal,
+        openedAt: order.openedAt,
+        closedAt: order.closedAt,
+        acceptedAt: (order as any).acceptedAt ?? null,
+        readyAt: (order as any).readyAt ?? null,
+        servedAt: (order as any).servedAt ?? null,
+        canceledAt: (order as any).canceledAt ?? null,
+        prepEtaMinutes: (order as any).prepEtaMinutes ?? null,
+        externalRef: (order as any).externalRef ?? null,
+        table: order.table ? { id: order.table.id, name: order.table.name } : null,
+        payments: order.payments.map((p) => ({
+          id: p.id,
+          method: p.method as PaymentMethod,
+          amountCents: p.amountCents,
+          tipCents: p.tipCents,
+          paidAt: p.paidAt,
+          note: p.note,
+        })),
+      };
+    });
+  }
+
+  private async getTodayOrderCount(
+    tx: Prisma.TransactionClient,
+    referenceDate: Date
+  ): Promise<number> {
+    const start = new Date(referenceDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(referenceDate);
+    end.setHours(23, 59, 59, 999);
+
+    return tx.order.count({
+      where: {
+        openedAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+    });
+  }
+
+  private async generateSequentialCode(
+    tx: Prisma.TransactionClient,
+    servedByUserId?: number | null
+  ): Promise<string> {
+    const now = new Date();
+    const noteNumber = (await this.getTodayOrderCount(tx, now)) + 1;
+    let attendedBy: { id?: number | null; name?: string | null } | undefined;
+    if (servedByUserId != null) {
+      const user = await tx.user.findUnique({
+        where: { id: servedByUserId },
+        select: { id: true, name: true },
+      });
+      attendedBy = { id: user?.id ?? servedByUserId, name: user?.name ?? null };
+    }
+    return formatNoteCode(noteNumber, now, attendedBy);
+  }
+
+  private calculateMarkupMultiplier(markup?: Prisma.Decimal | number | null): number {
+    if (markup === null || markup === undefined) return 1;
+    const value = Number(markup);
+    if (!Number.isFinite(value) || value === 0) return 1;
+    return 1 + value / 100;
+  }
+
+  private applyMarkup(amount: number, multiplier: number): number {
+    if (!amount || multiplier === 1) return amount;
+    return Math.round(amount * multiplier);
+  }
+
+  private async getMarkupForSource(
+    tx: Prisma.TransactionClient,
+    source?: OrderSource | null
+  ): Promise<number | null> {
+    if (!source || source === "POS") return null;
+    const config = await tx.channelConfig.findUnique({
+      where: { source },
+      select: { markupPct: true },
+    });
+    return config ? Number(config.markupPct) : null;
+  }
+
+  private async resolveModifiers(
+    tx: Prisma.TransactionClient,
+    modifiers: AddItemModifierInput[] | undefined,
+    markupMultiplier: number
+  ) {
+    if (!modifiers?.length) return { extras: 0, mods: [] as {
+      optionId: number;
+      quantity: number;
+      priceExtraCents: number;
+      nameSnapshot: string;
+    }[] };
+
+    const ids = modifiers.map((mm) => mm.optionId);
+    const options = await tx.modifierOption.findMany({ where: { id: { in: ids } } });
+
+    let extras = 0;
+    const mods: {
+      optionId: number;
+      quantity: number;
+      priceExtraCents: number;
+      nameSnapshot: string;
+    }[] = [];
+
+    for (const m of modifiers) {
+      const opt = options.find((o) => o.id === m.optionId);
+      if (!opt) continue;
+      const qty = m.quantity ?? 1;
+      const unitExtra = this.applyMarkup(opt.priceExtraCents || 0, markupMultiplier);
+      extras += unitExtra * qty;
+      mods.push({
+        optionId: opt.id,
+        quantity: qty,
+        priceExtraCents: unitExtra,
+        nameSnapshot: opt.name,
+      });
+    }
+
+    return { extras, mods };
+  }
+
+  private async createCustomChildItems(
+    tx: Prisma.TransactionClient,
+    orderId: number,
+    parentItemId: number,
+    parentQuantity: number,
+    children: ChildItemInput[],
+    markupMultiplier: number
+  ) {
+    for (const child of children) {
+      const product = await tx.product.findUnique({
+        where: { id: child.productId },
+      });
+      if (!product || !product.isActive || !product.isAvailable) {
+        throw new Error("Producto hijo no disponible");
+      }
+
+      let variantId: number | null = null;
+      let variantName: string | null = null;
+      if (product.type === "VARIANTED") {
+        if (!child.variantId) throw new Error("variantId requerido para componente VARIANTED");
+        const variant = await tx.productVariant.findUnique({ where: { id: child.variantId } });
+        if (!variant || !variant.isActive || !variant.isAvailable) {
+          throw new Error("Variante de componente no disponible");
+        }
+        variantId = variant.id;
+        variantName = variant.name;
+      } else if (child.variantId) {
+        const variant = await tx.productVariant.findUnique({ where: { id: child.variantId } });
+        if (variant && variant.isActive && variant.isAvailable) {
+          variantId = variant.id;
+          variantName = variant.name;
+        }
+      }
+
+      const childQty = (child.quantity ?? 1) * parentQuantity;
+      const { extras, mods } = await this.resolveModifiers(
+        tx,
+        child.modifiers,
+        markupMultiplier
+      );
+      const totalUnit = extras;
+      const totalPrice = totalUnit * childQty;
+
+      await tx.orderItem.create({
+        data: {
+          orderId,
+          productId: product.id,
+          parentItemId,
+          variantId,
+          quantity: childQty,
+          status: "NEW",
+          basePriceCents: 0,
+          extrasTotalCents: extras,
+          totalPriceCents: totalPrice,
+          nameSnapshot: product.name,
+          variantNameSnapshot: variantName,
+          notes: child.notes ?? null,
+          modifiers: mods.length ? { createMany: { data: mods } } : undefined,
+        },
+      });
+    }
   }
 }

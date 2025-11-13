@@ -7,19 +7,44 @@ import type {
   ModifierOption
 } from '@prisma/client';
 
+type MenuProductRef = Pick<
+  Product,
+  'id' | 'name' | 'type' | 'priceCents' | 'isActive' | 'isAvailable'
+> & {
+  imageUrl: string | null;
+  hasImage: boolean;
+};
+
+type MenuProductBasic = Pick<
+  Product,
+  'id' | 'name' | 'type' | 'isActive' | 'isAvailable' | 'priceCents'
+> & {
+  imageUrl: string | null;
+  hasImage: boolean;
+};
+
+type MenuComboComponent = {
+  quantity: number;
+  isRequired: boolean;
+  notes: string | null;
+  product: MenuProductBasic;
+  variant: Pick<ProductVariant, 'id' | 'name' | 'priceCents' | 'isActive' | 'isAvailable'> | null;
+};
+
 export type MenuRefPayload =
   | {
       kind: 'PRODUCT';
-      product: Pick<Product, 'id' | 'name' | 'type' | 'priceCents' | 'isActive' | 'isAvailable'>;
+      product: MenuProductRef;
     }
   | {
       kind: 'COMBO';
-      product: Pick<Product, 'id' | 'name' | 'type' | 'priceCents' | 'isActive' | 'isAvailable'>;
+      product: MenuProductRef;
+      components: MenuComboComponent[];
     }
   | {
       kind: 'VARIANT';
       variant: Pick<ProductVariant, 'id' | 'name' | 'priceCents' | 'isActive' | 'isAvailable'> & {
-        product: Pick<Product, 'id' | 'name' | 'type' | 'isActive' | 'isAvailable'>;
+        product: MenuProductBasic;
       };
     }
   | {
@@ -86,8 +111,8 @@ export interface IMenuRepository {
   removeItem(id: number, hard?: boolean): Promise<void>;
   restoreItem(id: number): Promise<void>;
   deleteItemHard(id: number): Promise<void>;
-  listItems(sectionId: number): Promise<MenuItem[]>;
-  listArchivedItems(sectionId: number): Promise<MenuItem[]>;
+  listItems(sectionId: number): Promise<MenuItemWithRef[]>;
+  listArchivedItems(sectionId: number): Promise<MenuItemWithRef[]>;
 
   getMenuPublic(id: number): Promise<MenuPublic | null>;
 }

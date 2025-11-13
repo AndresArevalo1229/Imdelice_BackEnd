@@ -10,6 +10,7 @@
     { "key": "token", "value": "" },
     { "key": "groupId", "value": "1" },
     { "key": "productId", "value": "1" },
+    { "key": "variantId", "value": "1" },
     { "key": "optionId", "value": "1" }
   ],
   "item": [
@@ -150,6 +151,81 @@
               "raw": "{{baseUrl}}/api/modifiers/groups/{{groupId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "modifiers", "groups", "{{groupId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Variant Modifier Overrides",
+      "item": [
+        {
+          "name": "List Variant Modifier Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/variants/{{variantId}}/modifier-groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "variants", "{{variantId}}", "modifier-groups"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Modifier Group to Variant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": {{groupId}},\n  \"minSelect\": 0,\n  \"maxSelect\": 2,\n  \"isRequired\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/variants/{{variantId}}/modifier-groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "variants", "{{variantId}}", "modifier-groups"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Variant Modifier Group",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minSelect\": 1,\n  \"maxSelect\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/variants/{{variantId}}/modifier-groups/{{groupId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "variants", "{{variantId}}", "modifier-groups", "{{groupId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detach Modifier Group from Variant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/variants/{{variantId}}/modifier-groups/{{groupId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "variants", "{{variantId}}", "modifier-groups", "{{groupId}}"]
             }
           },
           "response": []

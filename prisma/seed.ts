@@ -8,8 +8,16 @@ const PERMS = [
   'modifiers.read','modifiers.create','modifiers.update','modifiers.delete',
   'products.read','products.create','products.update','products.delete',
   'orders.read','orders.create','orders.update','orders.delete',
-  'menu.read','menu.create','menu.update','menu.delete','menu.publish'
+  'menu.read','menu.create','menu.update','menu.delete','menu.publish',
+  'tables.read','tables.create','tables.update','tables.delete'
 ]
+
+const CHANNEL_CONFIGS: Array<{ source: 'POS' | 'UBER' | 'DIDI' | 'RAPPI'; markupPct: number }> = [
+  { source: 'POS', markupPct: 0 },
+  { source: 'UBER', markupPct: 46 },
+  { source: 'DIDI', markupPct: 40 },
+  { source: 'RAPPI', markupPct: 35 },
+];
 
 async function main() {
   // Permisos
@@ -42,7 +50,7 @@ async function main() {
     create: { name: 'MESERO', description: 'Operación en piso' }
   })
   const meseroPerms = await prisma.permission.findMany({
-    where: { code: { in: ['categories.read', 'modifiers.read', 'menu.read', 'orders.read', 'orders.create', 'orders.update'] } }
+    where: { code: { in: ['categories.read', 'modifiers.read', 'menu.read', 'orders.read', 'orders.create', 'orders.update', 'tables.read'] } }
   })
   await prisma.rolePermission.deleteMany({ where: { roleId: mesero.id }})
   if (meseroPerms.length) {
@@ -50,6 +58,15 @@ async function main() {
       data: meseroPerms.map(p => ({ roleId: mesero.id, permissionId: p.id })),
       skipDuplicates: true
     })
+  }
+
+  // Configuración de markup por canal
+  for (const cfg of CHANNEL_CONFIGS) {
+    await prisma.channelConfig.upsert({
+      where: { source: cfg.source },
+      update: { markupPct: cfg.markupPct },
+      create: { source: cfg.source, markupPct: cfg.markupPct }
+    });
   }
 }
 

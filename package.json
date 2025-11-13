@@ -8,8 +8,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "prisma:studio": "prisma studio",
-    
+   
     "migrate": "prisma migrate dev"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

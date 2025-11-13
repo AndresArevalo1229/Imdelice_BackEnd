@@ -1,7 +1,26 @@
-import type { Product, ProductVariant } from '@prisma/client';
+import type { Product, ProductVariant, ModifierGroup, ModifierOption } from '@prisma/client';
+
+export type ProductListItem = Omit<Product, 'image'> & {
+  imageUrl: string | null;
+  hasImage: boolean;
+};
 
 export type ProductWithDetails = Product & {
-  variants: ProductVariant[];
+  variants: (ProductVariant & {
+    modifierGroupLinks: {
+      group: {
+        id: number;
+        name: string;
+        minSelect: number;
+        maxSelect: number | null;
+        isRequired: boolean;
+        options: { id: number; name: string; priceExtraCents: number; isDefault: boolean }[];
+      };
+      minSelect: number;
+      maxSelect: number | null;
+      isRequired: boolean;
+    }[];
+  })[];
   modifierGroups: {
     id: number;
     position: number;
@@ -63,8 +82,17 @@ export interface IProductRepository {
   replaceVariants(productId: number, variants: { name: string; priceCents: number; sku?: string }[]): Promise<void>;
 
   getById(id: number): Promise<ProductWithDetails | null>;
-  list(filter?: { categorySlug?: string; type?: 'SIMPLE'|'VARIANTED'|'COMBO'; isActive?: boolean }): Promise<Product[]>;
+  list(filter?: { categorySlug?: string; type?: 'SIMPLE'|'VARIANTED'|'COMBO'; isActive?: boolean }): Promise<ProductListItem[]>;
   attachModifierGroup(productId: number, groupId: number, position?: number): Promise<void>;
+  attachModifierGroupToVariant(variantId: number, data: { groupId: number; minSelect?: number; maxSelect?: number | null; isRequired?: boolean }): Promise<void>;
+  updateVariantModifierGroup(variantId: number, groupId: number, data: { minSelect?: number; maxSelect?: number | null; isRequired?: boolean }): Promise<void>;
+  detachModifierGroupFromVariant(variantId: number, groupId: number): Promise<void>;
+  listVariantModifierGroups(variantId: number): Promise<Array<{
+    group: ModifierGroup & { options: ModifierOption[] };
+    minSelect: number;
+    maxSelect: number | null;
+    isRequired: boolean;
+  }>>;
   deactivate(id: number): Promise<void>;
   deleteHard(id: number): Promise<void>;
 

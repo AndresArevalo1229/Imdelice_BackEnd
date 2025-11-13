@@ -16,6 +16,44 @@ import type {
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 
+type ProductSummaryRow = {
+  id: number;
+  name: string;
+  type: Product['type'];
+  priceCents: number | null;
+  isActive: boolean;
+  isAvailable: boolean;
+  imageMimeType: string | null;
+  updatedAt: Date;
+};
+
+type ProductBasicRow = {
+  id: number;
+  name: string;
+  type: Product['type'];
+  priceCents: number | null;
+  isActive: boolean;
+  isAvailable: boolean;
+  imageMimeType: string | null;
+  updatedAt: Date;
+};
+
+type ComboSummaryRow = ProductSummaryRow & {
+  comboItemsAsCombo: Array<{
+    quantity: number;
+    isRequired: boolean;
+    notes: string | null;
+    componentProduct: ProductBasicRow;
+    componentVariant: {
+      id: number;
+      name: string;
+      priceCents: number;
+      isActive: boolean;
+      isAvailable: boolean;
+    } | null;
+  }>;
+};
+
 export class PrismaMenuRepository implements IMenuRepository {
   async createMenu(data: {
     name: string;
@@ -322,18 +360,28 @@ export class PrismaMenuRepository implements IMenuRepository {
     await prisma.menuItem.delete({ where: { id } });
   }
 
-  listItems(sectionId: number): Promise<MenuItem[]> {
-    return prisma.menuItem.findMany({
+  async listItems(sectionId: number): Promise<MenuItemWithRef[]> {
+    const items = await prisma.menuItem.findMany({
       where: { sectionId, deletedAt: null },
       orderBy: { position: 'asc' }
     });
+    if (!items.length) return [];
+    const resolved = await this.resolveMenuItemRefs(items);
+    return items
+      .map((item) => resolved.get(item.id))
+      .filter((item): item is MenuItemWithRef => Boolean(item));
   }
 
-  listArchivedItems(sectionId: number): Promise<MenuItem[]> {
-    return prisma.menuItem.findMany({
+  async listArchivedItems(sectionId: number): Promise<MenuItemWithRef[]> {
+    const items = await prisma.menuItem.findMany({
       where: { sectionId, deletedAt: { not: null } },
       orderBy: { deletedAt: 'desc' }
     });
+    if (!items.length) return [];
+    const resolved = await this.resolveMenuItemRefs(items);
+    return items
+      .map((item) => resolved.get(item.id))
+      .filter((item): item is MenuItemWithRef => Boolean(item));
   }
 
   async getMenuPublic(id: number): Promise<MenuPublic | null> {
@@ -481,23 +529,85 @@ export class PrismaMenuRepository implements IMenuRepository {
     const variantIds = grouped.get('VARIANT') ?? [];
     const optionIds = grouped.get('OPTION') ?? [];
 
+    const productSelect = {
+      id: true,
+      name: true,
+      type: true,
+      priceCents: true,
+      isActive: true,
+      isAvailable: true,
+      imageMimeType: true,
+      updatedAt: true
+    } as const;
+
+    const productBasicSelect = {
+      id: true,
+      name: true,
+      type: true,
+      priceCents: true,
+      isActive: true,
+      isAvailable: true,
+      imageMimeType: true,
+      updatedAt: true
+    } as const;
+
+    const comboSelect = {
+      id: true,
+      name: true,
+      type: true,
+      priceCents: true,
+      isActive: true,
+      isAvailable: true,
+      imageMimeType: true,
+      updatedAt: true,
+      comboItemsAsCombo: {
+        select: {
+          quantity: true,
+          isRequired: true,
+          notes: true,
+          componentProduct: { select: productBasicSelect },
+          componentVariant: {
+            select: {
+              id: true,
+              name: true,
+              priceCents: true,
+              isActive: true,
+              isAvailable: true
+            }
+          }
+        }
+      }
+    } as const;
+
     const [products, combos, variants, options] = await Promise.all([
       productIds.length
         ? prisma.product.findMany({
-            where: { id: { in: productIds }, isActive: true, isAvailable: true, type: { not: ProductType.COMBO } }
-          })
-        : Promise.resolve([] as Product[]),
+            where: {
+              id: { in: productIds },
+              isActive: true,
+              isAvailable: true,
+              type: { not: ProductType.COMBO }
+            },
+            select: productSelect
+          }) as Promise<ProductSummaryRow[]>
+        : Promise.resolve([] as ProductSummaryRow[]),
       comboIds.length
         ? prisma.product.findMany({
-            where: { id: { in: comboIds }, isActive: true, isAvailable: true, type: ProductType.COMBO }
-          })
-        : Promise.resolve([] as Product[]),
+            where: {
+              id: { in: comboIds },
+              isActive: true,
+              isAvailable: true,
+              type: ProductType.COMBO
+            },
+            select: comboSelect
+          }) as Promise<ComboSummaryRow[]>
+        : Promise.resolve([] as ComboSummaryRow[]),
       variantIds.length
         ? prisma.productVariant.findMany({
             where: { id: { in: variantIds }, isActive: true, isAvailable: true },
-            include: { product: true }
-          })
-        : Promise.resolve([] as (ProductVariant & { product: Product })[]),
+            include: { product: { select: productBasicSelect } }
+          }) as Promise<Array<ProductVariant & { product: ProductBasicRow }>>
+        : Promise.resolve([] as Array<ProductVariant & { product: ProductBasicRow }>),
       optionIds.length
         ? prisma.modifierOption.findMany({
             where: { id: { in: optionIds }, isActive: true }
@@ -505,8 +615,52 @@ export class PrismaMenuRepository implements IMenuRepository {
         : Promise.resolve([] as ModifierOption[])
     ]);
 
-    const productMap = new Map(products.map((p) => [p.id, p]));
-    const comboMap = new Map(combos.map((p) => [p.id, p]));
+    const toProductRef = (prod: ProductSummaryRow) => ({
+      id: prod.id,
+      name: prod.name,
+      type: prod.type,
+      priceCents: prod.priceCents,
+      isActive: prod.isActive,
+      isAvailable: prod.isAvailable,
+      imageUrl: prod.imageMimeType ? `/products/${prod.id}/image?v=${prod.updatedAt.getTime()}` : null,
+      hasImage: Boolean(prod.imageMimeType)
+    });
+
+    const toProductBasicRef = (prod: ProductBasicRow) => ({
+      id: prod.id,
+      name: prod.name,
+      type: prod.type,
+      priceCents: prod.priceCents,
+      isActive: prod.isActive,
+      isAvailable: prod.isAvailable,
+      imageUrl: prod.imageMimeType ? `/products/${prod.id}/image?v=${prod.updatedAt.getTime()}` : null,
+      hasImage: Boolean(prod.imageMimeType)
+    });
+
+    const productMap = new Map(products.map((p) => [p.id, toProductRef(p)]));
+    const comboMap = new Map(
+      combos.map((combo) => [
+        combo.id,
+        {
+          product: toProductRef(combo),
+          components: combo.comboItemsAsCombo.map((component) => ({
+            quantity: component.quantity,
+            isRequired: component.isRequired,
+            notes: component.notes ?? null,
+            product: toProductBasicRef(component.componentProduct),
+            variant: component.componentVariant
+              ? {
+                  id: component.componentVariant.id,
+                  name: component.componentVariant.name,
+                  priceCents: component.componentVariant.priceCents,
+                  isActive: component.componentVariant.isActive,
+                  isAvailable: component.componentVariant.isAvailable
+                }
+              : null
+          }))
+        }
+      ])
+    );
     const variantMap = new Map(variants.map((v) => [v.id, v]));
     const optionMap = new Map(options.map((o) => [o.id, o]));
 
@@ -526,7 +680,7 @@ export class PrismaMenuRepository implements IMenuRepository {
           if (!combo) continue;
           result.set(item.id, {
             ...item,
-            ref: { kind: 'COMBO', product: combo }
+            ref: { kind: 'COMBO', product: combo.product, components: combo.components }
           });
           break;
         }
@@ -547,11 +701,7 @@ export class PrismaMenuRepository implements IMenuRepository {
                 isActive: variant.isActive,
                 isAvailable: variant.isAvailable,
                 product: {
-                  id: variant.product.id,
-                  name: variant.product.name,
-                  type: variant.product.type,
-                  isActive: variant.product.isActive,
-                  isAvailable: variant.product.isAvailable
+                  ...toProductBasicRef(variant.product)
                 }
               }
             }

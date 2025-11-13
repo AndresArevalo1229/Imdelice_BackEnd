@@ -1,5 +1,6 @@
-import type { IProductRepository, ProductWithDetails } from '../../core/domain/repositories/IProductRepository';
+import type { IProductRepository, ProductListItem, ProductWithDetails } from '../../core/domain/repositories/IProductRepository';
 import type { Product } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 
 export class PrismaProductRepository implements IProductRepository {
@@ -118,7 +119,18 @@ update(
     return prisma.product.findUnique({
       where: { id },
       include: {
-        variants: true,
+        variants: {
+          orderBy: { position: 'asc' },
+          include: {
+            modifierGroupLinks: {
+              include: {
+                group: {
+                  include: { options: true }
+                }
+              }
+            }
+          }
+        },
         modifierGroups: { include: { group: { include: { options: true } } }, orderBy: { position: 'asc' } },
         comboItemsAsCombo: {
           include: {
@@ -132,19 +144,104 @@ update(
   }
 
 
-  list(filter?: { categorySlug?: string; type?: 'SIMPLE'|'VARIANTED'|'COMBO'; isActive?: boolean }): Promise<Product[]> {
-    return prisma.product.findMany({
+  async list(filter?: { categorySlug?: string; type?: 'SIMPLE'|'VARIANTED'|'COMBO'; isActive?: boolean }): Promise<ProductListItem[]> {
+    const products = await prisma.product.findMany({
       where: {
         type: filter?.type as any,
         isActive: filter?.isActive,
         category: filter?.categorySlug ? { slug: filter.categorySlug } : undefined
       },
-      orderBy: [{ createdAt: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        type: true,
+        categoryId: true,
+        priceCents: true,
+        isActive: true,
+        sku: true,
+        imageMimeType: true,
+        imageSize: true,
+        isAvailable: true,
+        createdAt: true,
+        updatedAt: true
+      }
     });
+
+    return products.map(prod => ({
+      ...prod,
+      imageUrl: prod.imageMimeType ? `/products/${prod.id}/image?v=${prod.updatedAt.getTime()}` : null,
+      hasImage: Boolean(prod.imageMimeType)
+    }));
   }
 
   async attachModifierGroup(productId: number, groupId: number, position = 0): Promise<void> {
     await prisma.productModifierGroup.create({ data: { productId, groupId, position } });
+  }
+
+  async attachModifierGroupToVariant(
+    variantId: number,
+    data: { groupId: number; minSelect?: number; maxSelect?: number | null; isRequired?: boolean }
+  ): Promise<void> {
+    const createPayload = {
+      variantId,
+      groupId: data.groupId,
+      minSelect: data.minSelect ?? 0,
+      maxSelect: data.maxSelect ?? null,
+      isRequired: data.isRequired ?? false
+    };
+
+    try {
+      await prisma.productVariantModifierGroup.create({ data: createPayload });
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        await this.updateVariantModifierGroup(variantId, data.groupId, data);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  async updateVariantModifierGroup(
+    variantId: number,
+    groupId: number,
+    data: { minSelect?: number; maxSelect?: number | null; isRequired?: boolean }
+  ): Promise<void> {
+    const updateData: Prisma.ProductVariantModifierGroupUpdateInput = {};
+    if (data.minSelect !== undefined) updateData.minSelect = data.minSelect;
+    if (data.maxSelect !== undefined) updateData.maxSelect = data.maxSelect;
+    if (data.isRequired !== undefined) updateData.isRequired = data.isRequired;
+
+    if (!Object.keys(updateData).length) return;
+
+    await prisma.productVariantModifierGroup.update({
+      where: { variantId_groupId: { variantId, groupId } },
+      data: updateData
+    });
+  }
+
+  async detachModifierGroupFromVariant(variantId: number, groupId: number): Promise<void> {
+    await prisma.productVariantModifierGroup.deleteMany({
+      where: { variantId, groupId }
+    });
+  }
+
+  async listVariantModifierGroups(variantId: number) {
+    const links = await prisma.productVariantModifierGroup.findMany({
+      where: { variantId },
+      include: {
+        group: { include: { options: true } }
+      },
+      orderBy: [{ groupId: 'asc' }]
+    });
+
+    return links.map(link => ({
+      group: link.group,
+      minSelect: link.minSelect,
+      maxSelect: link.maxSelect,
+      isRequired: link.isRequired
+    }));
   }
 
   async deactivate(id: number): Promise<void> {

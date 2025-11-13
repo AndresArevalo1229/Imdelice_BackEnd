@@ -6,6 +6,7 @@ export class UpdateOrderMeta {
     tableId?: number | null;
     note?: string | null;
     covers?: number | null;
+    prepEtaMinutes?: number | null;
   }) {
     return this.repo.updateMeta(orderId, data);
   }

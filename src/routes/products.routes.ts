@@ -12,6 +12,10 @@ router.post("/simple",    authorize('products.create'), uploadImage.single('imag
 router.post("/varianted", authorize('products.create'), uploadImage.single('image'), asyncHandler(productsController.createVarianted));
 
 router.get("/",           authorize('products.read'), asyncHandler(productsController.list));
+router.get("/variants/:variantId/modifier-groups", authorize('products.read'), asyncHandler(productsController.listVariantModifierGroups));
+router.post("/variants/:variantId/modifier-groups", authorize('products.update'), asyncHandler(productsController.attachModifierToVariant));
+router.patch("/variants/:variantId/modifier-groups/:groupId", authorize('products.update'), asyncHandler(productsController.updateVariantModifierGroup));
+router.delete("/variants/:variantId/modifier-groups/:groupId", authorize('products.update'), asyncHandler(productsController.detachModifierFromVariant));
 router.get("/:id",        authorize('products.read'), asyncHandler(productsController.getDetail));
 router.post("/attach-modifier", authorize('products.update'), asyncHandler(productsController.attachModifier));
 router.post('/detach-modifier', authorize('products.update'), asyncHandler(productsController.detachModifierGroup)); // 👈 NUEVA
