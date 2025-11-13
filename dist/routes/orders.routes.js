@@ -13,6 +13,7 @@ router.get("/:id", (0, authorize_1.authorize)("orders.read"), (0, asyncHandler_1
 router.post("/", (0, authorize_1.authorize)("orders.create"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.create));
 router.patch("/:id/meta", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.updateMeta));
 router.patch("/:id/status", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.updateStatus));
+router.post("/:id/refund", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.refund));
 router.post("/:id/items", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.addItem));
 router.patch("/items/:itemId/status", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.setItemStatus));
 router.patch("/items/:itemId", (0, authorize_1.authorize)("orders.update"), (0, asyncHandler_1.asyncHandler)(container_1.ordersController.updateItem));

@@ -37,13 +37,15 @@ Respuesta:
       "tipCents": 17000,
       "changeCents": 3500,
       "receivedAmountCents": 295500,
-      "ordersClosed": 9
+      "ordersClosed": 9,
+      "ordersCanceled": 2,
+      "ordersRefunded": 1
     }
   },
   "message": "OK"
 }
 
-Si se manda `includeOrders=true`:
+Si se manda `includeOrders=true` (las “notas” de ese día):
 
 ```
 GET /api/reports/payments?from=2025-11-11&to=2025-11-11&includeOrders=true
@@ -74,6 +76,23 @@ Respuesta (fragmento):
         "payments": [
           { "id": 555, "method": "CASH", "amountCents": 9500, "tipCents": 500, "changeCents": 0, "paidAt": "2025-11-11T16:04:50.000Z" }
         ]
+      },
+      {
+        "orderId": 130,
+        "code": "NOTA 130 del 11 de noviembre ...",
+        "status": "CANCELED",
+        "note": "Cliente devolvió producto",
+        "table": null,
+        "payments": []
+      },
+      {
+        "orderId": 131,
+        "code": "NOTA 131 del 11 de noviembre ...",
+        "status": "REFUNDED",
+        "note": "Producto defectuoso",
+        "payments": [
+          { "id": 777, "method": "CARD", "amountCents": -12000, "tipCents": 0, "changeCents": 0, "paidAt": "2025-11-11T17:32:10.000Z" }
+        ]
       }
     ]
   }
@@ -85,6 +104,8 @@ Notas:
 - `tipCents`: suma de propinas registradas.
 - `changeCents`: cambio devuelto (solo efectivo).
 - `receivedAmountCents`: cuánto entregó el cliente (permite auditar sobrantes/faltantes).
-- `ordersClosed`: número de órdenes que se cerraron (status CLOSED) en ese rango de fechas.
+- `ordersClosed`: número de órdenes que se cerraron (status CLOSED) en ese rango.
+- `ordersCanceled`: número de órdenes que pasaron a CANCELED en ese rango (según canceledAt).
+- `ordersRefunded`: número de órdenes que se marcaron como REFUNDED en ese rango.
 - Si no hay pagos en el rango, `totalsByMethod` será [] y los totales quedarán en 0.
 - Usa el mismo timezone que tu servidor (las fechas llegan en ISO UTC).

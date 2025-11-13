@@ -14,6 +14,7 @@ import {
   ServiceTypeEnum,
   OrderSourceEnum,
 } from "../dtos/orders.dto";
+import { RefundOrderDto } from "../dtos/refund.dto";
 import { CreateOrder } from "../../core/usecases/orders/CreateOrder";
 import { AddOrderItem } from "../../core/usecases/orders/AddOrderItem";
 import { UpdateOrderItemStatus } from "../../core/usecases/orders/UpdateOrderItemStatus";
@@ -26,7 +27,9 @@ import { SplitOrderByItems } from "../../core/usecases/orders/SplitOrderByItems"
 import { UpdateOrderMeta } from "../../core/usecases/orders/UpdateOrderMeta";
 import { UpdateOrderStatus } from "../../core/usecases/orders/UpdateOrderStatus";
 import { ListOrders } from "../../core/usecases/orders/ListOrders";
+import { RefundOrder } from "../../core/usecases/orders/RefundOrder";
 import type { AuthRequest } from "../middlewares/authenticate";
+import { AdminAuthService } from "../../infra/services/AdminAuthService";
 
 function ensureNumericId(param: string | undefined) {
   const id = Number(param);
@@ -101,7 +104,9 @@ export class OrdersController {
     private splitOrderByItemsUC: SplitOrderByItems,
     private updateOrderMetaUC: UpdateOrderMeta,
     private updateOrderStatusUC: UpdateOrderStatus,
-    private listOrdersUC: ListOrders
+    private listOrdersUC: ListOrders,
+    private refundOrderUC: RefundOrder,
+    private adminAuthService: AdminAuthService
   ) {}
 
   list = async (req: AuthRequest, res: Response) => {
@@ -339,6 +344,26 @@ export class OrdersController {
           ? 409
           : 500;
       return fail(res, e?.message || "Error updating order status", status, e);
+    }
+  };
+
+  refund = async (req: AuthRequest, res: Response) => {
+    try {
+      const orderId = ensureNumericId(req.params.id);
+      const dto = RefundOrderDto.parse(req.body);
+      const admin = await this.adminAuthService.verify({
+        adminEmail: dto.adminEmail,
+        adminPin: dto.adminPin,
+        password: dto.password,
+      });
+      const result = await this.refundOrderUC.exec(orderId, {
+        adminUserId: admin.id,
+        reason: dto.reason ?? null,
+      });
+      return success(res, result, "Refunded");
+    } catch (e: any) {
+      const status = e?.status || (e?.message?.toLowerCase?.().includes("pedido") ? 400 : 500);
+      return fail(res, e?.message || "Error refunding order", status, e);
     }
   };
 }

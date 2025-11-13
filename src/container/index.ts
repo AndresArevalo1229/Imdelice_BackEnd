@@ -119,6 +119,8 @@ import { SplitOrderByItems } from "../core/usecases/orders/SplitOrderByItems";
 import { UpdateOrderMeta } from "../core/usecases/orders/UpdateOrderMeta";
 import { UpdateOrderStatus } from "../core/usecases/orders/UpdateOrderStatus";
 import { ListOrders } from "../core/usecases/orders/ListOrders";
+import { RefundOrder } from "../core/usecases/orders/RefundOrder";
+import { AdminAuthService } from "../infra/services/AdminAuthService";
 import { GetPaymentsReport } from "../core/usecases/reports/GetPaymentsReport";
 import { ReportsController } from "../presentation/controllers/ReportsController";
 import { PrismaChannelConfigRepository } from "../infra/repositories/PrismaChannelConfigRepository";
@@ -281,6 +283,8 @@ const updateOrderMetaUC = new UpdateOrderMeta(orderRepo);
 const updateOrderStatusUC = new UpdateOrderStatus(orderRepo);
 const listOrdersUC = new ListOrders(orderRepo);
 const getPaymentsReportUC = new GetPaymentsReport(orderRepo);
+const refundOrderUC = new RefundOrder(orderRepo);
+const adminAuthService = new AdminAuthService();
 const listChannelConfigsUC = new ListChannelConfigs(channelConfigRepo);
 const setChannelConfigUC = new SetChannelConfig(channelConfigRepo);
 
@@ -345,7 +349,9 @@ export const menuController = new MenuController(
 );
 export const ordersController = new OrdersController(
   createOrderUC, addOrderItemUC, updateOrderItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC,
-  updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC
+  updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC,
+  refundOrderUC,
+  adminAuthService
 );
 export const channelConfigController = new ChannelConfigController(
   listChannelConfigsUC,

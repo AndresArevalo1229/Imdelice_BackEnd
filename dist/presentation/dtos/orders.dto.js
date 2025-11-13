@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListOrdersQueryDto = exports.UpdateOrderStatusDto = exports.UpdateOrderMetaDto = exports.SplitOrderByItemsDto = exports.UpdateOrderItemDto = exports.AddPaymentDto = exports.UpdateOrderItemStatusDto = exports.CreateOrderDto = exports.AddOrderItemDto = exports.PaymentMethodEnum = exports.OrderItemStatusEnum = exports.OrderSourceEnum = exports.DraftOrderStatusEnum = exports.OrderStatusEnum = exports.ServiceTypeEnum = void 0;
 const zod_1 = require("zod");
 const serviceTypeValues = ["DINE_IN", "TAKEAWAY", "DELIVERY"];
-const orderStatusValues = ["DRAFT", "OPEN", "HOLD", "CLOSED", "CANCELED"];
+const orderStatusValues = ["DRAFT", "OPEN", "HOLD", "CLOSED", "CANCELED", "REFUNDED"];
 const draftableOrderStatusValues = ["DRAFT", "OPEN", "HOLD"];
 const orderSourceValues = ["POS", "UBER", "DIDI", "RAPPI"];
 exports.ServiceTypeEnum = zod_1.z.enum(serviceTypeValues);

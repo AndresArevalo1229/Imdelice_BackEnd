@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdersController = void 0;
 const apiResponse_1 = require("../utils/apiResponse");
 const orders_dto_1 = require("../dtos/orders.dto");
+const refund_dto_1 = require("../dtos/refund.dto");
 function ensureNumericId(param) {
     const id = Number(param);
     if (!param || Number.isNaN(id) || id <= 0) {
@@ -58,7 +59,7 @@ function parseDateParam(value, endOfDay = false, tzOffsetMinutes = 0) {
     return parsed;
 }
 class OrdersController {
-    constructor(createOrderUC, addItemUC, updateItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC, updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC) {
+    constructor(createOrderUC, addItemUC, updateItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC, updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC, refundOrderUC, adminAuthService) {
         this.createOrderUC = createOrderUC;
         this.addItemUC = addItemUC;
         this.updateItemStatusUC = updateItemStatusUC;
@@ -71,6 +72,8 @@ class OrdersController {
         this.updateOrderMetaUC = updateOrderMetaUC;
         this.updateOrderStatusUC = updateOrderStatusUC;
         this.listOrdersUC = listOrdersUC;
+        this.refundOrderUC = refundOrderUC;
+        this.adminAuthService = adminAuthService;
         this.list = async (req, res) => {
             try {
                 const filtersDto = orders_dto_1.ListOrdersQueryDto.parse(req.query);
@@ -298,6 +301,26 @@ class OrdersController {
                         ? 409
                         : 500;
                 return (0, apiResponse_1.fail)(res, e?.message || "Error updating order status", status, e);
+            }
+        };
+        this.refund = async (req, res) => {
+            try {
+                const orderId = ensureNumericId(req.params.id);
+                const dto = refund_dto_1.RefundOrderDto.parse(req.body);
+                const admin = await this.adminAuthService.verify({
+                    adminEmail: dto.adminEmail,
+                    adminPin: dto.adminPin,
+                    password: dto.password,
+                });
+                const result = await this.refundOrderUC.exec(orderId, {
+                    adminUserId: admin.id,
+                    reason: dto.reason ?? null,
+                });
+                return (0, apiResponse_1.success)(res, result, "Refunded");
+            }
+            catch (e) {
+                const status = e?.status || (e?.message?.toLowerCase?.().includes("pedido") ? 400 : 500);
+                return (0, apiResponse_1.fail)(res, e?.message || "Error refunding order", status, e);
             }
         };
     }

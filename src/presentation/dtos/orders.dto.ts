@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const serviceTypeValues = ["DINE_IN", "TAKEAWAY", "DELIVERY"] as const;
-const orderStatusValues = ["DRAFT", "OPEN", "HOLD", "CLOSED", "CANCELED"] as const;
+const orderStatusValues = ["DRAFT", "OPEN", "HOLD", "CLOSED", "CANCELED", "REFUNDED"] as const;
 const draftableOrderStatusValues = ["DRAFT", "OPEN", "HOLD"] as const;
 const orderSourceValues = ["POS", "UBER", "DIDI", "RAPPI"] as const;
 

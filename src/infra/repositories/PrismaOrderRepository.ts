@@ -621,6 +621,24 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
     const ordersClosed = await prisma.order.count({ where: ordersClosedWhere });
 
+    const ordersCanceledWhere: Prisma.OrderWhereInput = { status: "CANCELED" };
+    if (filters.from || filters.to) {
+      ordersCanceledWhere.canceledAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+    const ordersCanceled = await prisma.order.count({ where: ordersCanceledWhere });
+
+    const ordersRefundedWhere: Prisma.OrderWhereInput = { status: "REFUNDED" };
+    if (filters.from || filters.to) {
+      ordersRefundedWhere.refundedAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+    const ordersRefunded = await prisma.order.count({ where: ordersRefundedWhere });
+
     const grandTotals = totalsByMethod.reduce(
       (acc, curr) => {
         acc.paymentsCount += curr.paymentsCount;
@@ -630,14 +648,20 @@ export class PrismaOrderRepository implements IOrderRepository {
         acc.receivedAmountCents += curr.receivedAmountCents;
         return acc;
       },
-      { paymentsCount: 0, amountCents: 0, tipCents: 0, changeCents: 0, receivedAmountCents: 0, ordersClosed }
+      { paymentsCount: 0, amountCents: 0, tipCents: 0, changeCents: 0, receivedAmountCents: 0, ordersClosed, ordersCanceled, ordersRefunded }
     );
 
     let ordersDetails: PaymentsReportOrderSummary[] | undefined;
 
     if (filters.includeOrders) {
       const orders = await prisma.order.findMany({
-        where: ordersClosedWhere,
+        where: {
+          OR: [
+            ordersClosedWhere,
+            ordersCanceledWhere,
+            ordersRefundedWhere,
+          ],
+        },
         include: {
           table: { select: { id: true, name: true } },
           payments: {
@@ -935,7 +959,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       const from = ord.status as OrderStatus;
       const to = status;
 
-      if (from === "CLOSED" || from === "CANCELED") {
+      if (from === "CLOSED" || from === "CANCELED" || from === "REFUNDED") {
         throw new Error(`No se puede cambiar estado desde ${from}`);
       }
 
@@ -945,6 +969,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         HOLD: ["OPEN", "CANCELED"],
         CLOSED: [],
         CANCELED: [],
+        REFUNDED: [],
       };
 
       const allowed = allowMap[from] || [];
@@ -1258,5 +1283,68 @@ export class PrismaOrderRepository implements IOrderRepository {
         },
       });
     }
+  }
+
+  async refundOrder(orderId: number, input: {
+    adminUserId: number;
+    reason?: string | null;
+  }): Promise<{ orderId: number; status: OrderStatus; refundedAt?: Date | null }> {
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { payments: true },
+      });
+      if (!order) throw new Error("Pedido no existe");
+      if (order.status !== "CLOSED") {
+        throw new Error("Solo puedes reembolsar pedidos cerrados");
+      }
+      if (!order.payments.length) {
+        throw new Error("Pedido sin pagos a reembolsar");
+      }
+
+      const reasonSuffix = input.reason ? `: ${input.reason}` : "";
+
+      for (const payment of order.payments) {
+        await tx.payment.create({
+          data: {
+            orderId,
+            method: payment.method,
+            amountCents: -(payment.amountCents || 0),
+            tipCents: -(payment.tipCents || 0),
+            changeCents: payment.changeCents ? -payment.changeCents : null,
+            receivedAmountCents: payment.receivedAmountCents
+              ? -payment.receivedAmountCents
+              : null,
+            receivedByUserId: input.adminUserId,
+            note: `REFUND${reasonSuffix}`.trim(),
+          },
+        });
+      }
+
+      const totalAmount = order.payments.reduce((acc, p) => acc + (p.amountCents || 0), 0);
+      const totalTips = order.payments.reduce((acc, p) => acc + (p.tipCents || 0), 0);
+
+      await tx.orderRefundLog.create({
+        data: {
+          orderId,
+          adminUserId: input.adminUserId,
+          amountCents: totalAmount,
+          tipCents: totalTips,
+          reason: input.reason ?? null,
+        },
+      });
+
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: { status: "REFUNDED", refundedAt: new Date() },
+        select: { id: true, status: true, refundedAt: true },
+      });
+
+      return {
+        orderId: updated.id,
+        status: updated.status as OrderStatus,
+        refundedAt: updated.refundedAt,
+      };
+    });
   }
 }

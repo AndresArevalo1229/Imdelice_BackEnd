@@ -10,6 +10,7 @@ export declare const OrderStatusEnum: z.ZodEnum<{
     HOLD: "HOLD";
     CLOSED: "CLOSED";
     CANCELED: "CANCELED";
+    REFUNDED: "REFUNDED";
 }>;
 export declare const DraftOrderStatusEnum: z.ZodEnum<{
     DRAFT: "DRAFT";
@@ -120,11 +121,12 @@ export declare const UpdateOrderStatusDto: z.ZodObject<{
         HOLD: "HOLD";
         CLOSED: "CLOSED";
         CANCELED: "CANCELED";
+        REFUNDED: "REFUNDED";
     }>;
 }, z.core.$strip>;
 export type UpdateOrderStatusDtoType = z.infer<typeof UpdateOrderStatusDto>;
 export declare const ListOrdersQueryDto: z.ZodObject<{
-    statuses: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<("DRAFT" | "OPEN" | "HOLD" | "CLOSED" | "CANCELED")[] | undefined, string | string[] | undefined>>;
+    statuses: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<("DRAFT" | "OPEN" | "HOLD" | "CLOSED" | "CANCELED" | "REFUNDED")[] | undefined, string | string[] | undefined>>;
     serviceType: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodEnum<{
         DINE_IN: "DINE_IN";
         TAKEAWAY: "TAKEAWAY";

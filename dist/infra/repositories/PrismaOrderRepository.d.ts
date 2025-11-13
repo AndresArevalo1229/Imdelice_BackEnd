@@ -166,6 +166,7 @@ export declare class PrismaOrderRepository implements IOrderRepository {
         servedAt: Date | null;
         closedAt: Date | null;
         canceledAt: Date | null;
+        refundedAt: Date | null;
         note: string | null;
         customerName: string | null;
         customerPhone: string | null;
@@ -221,6 +222,14 @@ export declare class PrismaOrderRepository implements IOrderRepository {
     private getMarkupForSource;
     private resolveModifiers;
     private createCustomChildItems;
+    refundOrder(orderId: number, input: {
+        adminUserId: number;
+        reason?: string | null;
+    }): Promise<{
+        orderId: number;
+        status: OrderStatus;
+        refundedAt?: Date | null;
+    }>;
 }
 export {};
 //# sourceMappingURL=PrismaOrderRepository.d.ts.map

@@ -50,6 +50,7 @@ model User {
 // 🔁 back-relations
   ordersServed      Order[]    // ← Order.servedBy
   paymentsReceived  Payment[]  // ← Payment.receivedBy
+  refundsAuthorized OrderRefundLog[] @relation("OrderRefundAdmin")
   @@index([roleId])
 }
 
@@ -302,6 +303,7 @@ enum OrderStatus {
   HOLD       // “en pausa” (esperando algo)
   CLOSED     // cobrado/cerrado
   CANCELED   // cancelado
+  REFUNDED   // reembolsado posterior al cobro
 }
 
 enum ServiceType {
@@ -371,6 +373,7 @@ model Order {
   servedAt       DateTime?
   closedAt       DateTime?
   canceledAt     DateTime?
+  refundedAt     DateTime?
   note           String?
   customerName   String?
   customerPhone  String?
@@ -388,6 +391,7 @@ model Order {
 
   items         OrderItem[]
   payments      Payment[]
+  refundLogs    OrderRefundLog[]
 
   @@index([status])
   @@index([serviceType])
@@ -469,4 +473,19 @@ model Payment {
 
   @@index([orderId])
   @@index([method])
+}
+
+model OrderRefundLog {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  adminUserId  Int
+  adminUser    User     @relation("OrderRefundAdmin", fields: [adminUserId], references: [id])
+  amountCents  Int
+  tipCents     Int      @default(0)
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
+  @@index([adminUserId])
 }

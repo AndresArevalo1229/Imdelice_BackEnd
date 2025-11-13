@@ -15,6 +15,7 @@ router.post("/", authorize("orders.create"), asyncHandler(ordersController.creat
 
 router.patch("/:id/meta", authorize("orders.update"), asyncHandler(ordersController.updateMeta));
 router.patch("/:id/status", authorize("orders.update"), asyncHandler(ordersController.updateStatus));
+router.post("/:id/refund", authorize("orders.update"), asyncHandler(ordersController.refund));
 
 router.post("/:id/items", authorize("orders.update"), asyncHandler(ordersController.addItem));
 router.patch("/items/:itemId/status", authorize("orders.update"), asyncHandler(ordersController.setItemStatus));

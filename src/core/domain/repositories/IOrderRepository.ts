@@ -1,6 +1,6 @@
 import type { Order, OrderItem, Payment } from "@prisma/client";
 
-export type OrderStatus = "DRAFT" | "OPEN" | "HOLD" | "CLOSED" | "CANCELED";
+export type OrderStatus = "DRAFT" | "OPEN" | "HOLD" | "CLOSED" | "CANCELED" | "REFUNDED";
 export type OrderItemStatus = "NEW" | "IN_PROGRESS" | "READY" | "SERVED" | "CANCELED";
 export type ServiceType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 export type PaymentMethod = "CASH" | "CARD" | "TRANSFER" | "OTHER";
@@ -133,6 +133,8 @@ export interface PaymentsReportResult {
     changeCents: number;
     receivedAmountCents: number;
     ordersClosed: number;
+    ordersCanceled: number;
+    ordersRefunded: number;
   };
   orders?: PaymentsReportOrderSummary[];
 }
@@ -207,6 +209,11 @@ export interface IOrderRepository {
   listKDS(filters: KDSFilters): Promise<KDSOrderTicket[]>;
 
   getPaymentsReport(filters: PaymentsReportFilters): Promise<PaymentsReportResult>;
+
+  refundOrder(orderId: number, input: {
+    adminUserId: number;
+    reason?: string | null;
+  }): Promise<{ orderId: number; status: OrderStatus; refundedAt?: Date | null }>;
 
   updateItem(orderItemId: number, data: {
     quantity?: number;

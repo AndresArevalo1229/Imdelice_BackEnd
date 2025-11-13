@@ -107,6 +107,8 @@ const SplitOrderByItems_1 = require("../core/usecases/orders/SplitOrderByItems")
 const UpdateOrderMeta_1 = require("../core/usecases/orders/UpdateOrderMeta");
 const UpdateOrderStatus_1 = require("../core/usecases/orders/UpdateOrderStatus");
 const ListOrders_1 = require("../core/usecases/orders/ListOrders");
+const RefundOrder_1 = require("../core/usecases/orders/RefundOrder");
+const AdminAuthService_1 = require("../infra/services/AdminAuthService");
 const GetPaymentsReport_1 = require("../core/usecases/reports/GetPaymentsReport");
 const ReportsController_1 = require("../presentation/controllers/ReportsController");
 const PrismaChannelConfigRepository_1 = require("../infra/repositories/PrismaChannelConfigRepository");
@@ -227,6 +229,8 @@ const updateOrderMetaUC = new UpdateOrderMeta_1.UpdateOrderMeta(orderRepo);
 const updateOrderStatusUC = new UpdateOrderStatus_1.UpdateOrderStatus(orderRepo);
 const listOrdersUC = new ListOrders_1.ListOrders(orderRepo);
 const getPaymentsReportUC = new GetPaymentsReport_1.GetPaymentsReport(orderRepo);
+const refundOrderUC = new RefundOrder_1.RefundOrder(orderRepo);
+const adminAuthService = new AdminAuthService_1.AdminAuthService();
 const listChannelConfigsUC = new ListChannelConfigs_1.ListChannelConfigs(channelConfigRepo);
 const setChannelConfigUC = new SetChannelConfig_1.SetChannelConfig(channelConfigRepo);
 // controllers
@@ -242,7 +246,7 @@ exports.modifiersController = new ModifiersController_1.ModifiersController(crea
 exports.tablesController = new TablesController_1.TablesController(createTableUC, listTablesUC, getTableUC, updateTableUC, deleteTableUC);
 //menu
 exports.menuController = new MenuController_1.MenuController(createMenuUC, listMenusUC, listArchivedMenusUC, updateMenuUC, deleteMenuUC, restoreMenuUC, createSecUC, updateSecUC, deleteSecUC, deleteSecHardUC, restoreSectionUC, listSectionsUC, listArchivedSectionsUC, addItemUC, updateItemUC, removeItemUC, restoreItemUC, deleteItemHardUC, listItemsUC, listArchivedItemsUC, getMenuPublicUC);
-exports.ordersController = new OrdersController_1.OrdersController(createOrderUC, addOrderItemUC, updateOrderItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC, updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC);
+exports.ordersController = new OrdersController_1.OrdersController(createOrderUC, addOrderItemUC, updateOrderItemStatusUC, addPaymentUC, getOrderDetailUC, listKDSUC, updateOrderItemUC, removeOrderItemUC, splitOrderByItemsUC, updateOrderMetaUC, updateOrderStatusUC, listOrdersUC, refundOrderUC, adminAuthService);
 exports.channelConfigController = new ChannelConfigController_1.ChannelConfigController(listChannelConfigsUC, setChannelConfigUC);
 exports.reportsController = new ReportsController_1.ReportsController(getPaymentsReportUC);
 //# sourceMappingURL=index.js.map

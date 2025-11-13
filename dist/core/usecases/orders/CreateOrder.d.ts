@@ -18,6 +18,7 @@ export declare class CreateOrder {
         servedAt: Date | null;
         closedAt: Date | null;
         canceledAt: Date | null;
+        refundedAt: Date | null;
         note: string | null;
         customerName: string | null;
         customerPhone: string | null;

@@ -11,7 +11,9 @@ import { SplitOrderByItems } from "../../core/usecases/orders/SplitOrderByItems"
 import { UpdateOrderMeta } from "../../core/usecases/orders/UpdateOrderMeta";
 import { UpdateOrderStatus } from "../../core/usecases/orders/UpdateOrderStatus";
 import { ListOrders } from "../../core/usecases/orders/ListOrders";
+import { RefundOrder } from "../../core/usecases/orders/RefundOrder";
 import type { AuthRequest } from "../middlewares/authenticate";
+import { AdminAuthService } from "../../infra/services/AdminAuthService";
 export declare class OrdersController {
     private createOrderUC;
     private addItemUC;
@@ -25,7 +27,9 @@ export declare class OrdersController {
     private updateOrderMetaUC;
     private updateOrderStatusUC;
     private listOrdersUC;
-    constructor(createOrderUC: CreateOrder, addItemUC: AddOrderItem, updateItemStatusUC: UpdateOrderItemStatus, addPaymentUC: AddPayment, getOrderDetailUC: GetOrderDetail, listKDSUC: ListKDS, updateOrderItemUC: UpdateOrderItem, removeOrderItemUC: RemoveOrderItem, splitOrderByItemsUC: SplitOrderByItems, updateOrderMetaUC: UpdateOrderMeta, updateOrderStatusUC: UpdateOrderStatus, listOrdersUC: ListOrders);
+    private refundOrderUC;
+    private adminAuthService;
+    constructor(createOrderUC: CreateOrder, addItemUC: AddOrderItem, updateItemStatusUC: UpdateOrderItemStatus, addPaymentUC: AddPayment, getOrderDetailUC: GetOrderDetail, listKDSUC: ListKDS, updateOrderItemUC: UpdateOrderItem, removeOrderItemUC: RemoveOrderItem, splitOrderByItemsUC: SplitOrderByItems, updateOrderMetaUC: UpdateOrderMeta, updateOrderStatusUC: UpdateOrderStatus, listOrdersUC: ListOrders, refundOrderUC: RefundOrder, adminAuthService: AdminAuthService);
     list: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
     create: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
     get: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
@@ -38,5 +42,6 @@ export declare class OrdersController {
     splitByItems: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
     updateMeta: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
     updateStatus: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
+    refund: (req: AuthRequest, res: Response) => Promise<Response<any, Record<string, any>>>;
 }
 //# sourceMappingURL=OrdersController.d.ts.map

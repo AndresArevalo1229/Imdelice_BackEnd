@@ -7,7 +7,7 @@ const PERMS = [
   'categories.read','categories.create','categories.update','categories.delete',
   'modifiers.read','modifiers.create','modifiers.update','modifiers.delete',
   'products.read','products.create','products.update','products.delete',
-  'orders.read','orders.create','orders.update','orders.delete',
+  'orders.read','orders.create','orders.update','orders.delete','orders.refund',
   'menu.read','menu.create','menu.update','menu.delete','menu.publish',
   'tables.read','tables.create','tables.update','tables.delete'
 ]
